@@ -1,0 +1,36 @@
+name: Update OG tags
+
+on:
+  workflow_dispatch:   # يمكن تشغيله يدوياً من تبويب Actions
+  schedule:
+    - cron: '*/5 * * * *'   # كل 5 دقائق (للتحقق التلقائي)
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch settings from JSONBin
+        run: |
+          RESPONSE=$(curl -s https://api.jsonbin.io/v3/b/69ee19e8856a68218974812e/latest)
+          TITLE=$(echo "$RESPONSE" | jq -r '.record.title // ""' | sed 's/<[^>]*>//g')
+          DESC=$(echo "$RESPONSE" | jq -r '.record.description // ""')
+          IMAGE=$(echo "$RESPONSE" | jq -r '.record.image // ""')
+          REDIRECT=$(echo "$RESPONSE" | jq -r '.record.redirectUrl // ""')
+
+          # استبدال القيم في ملف index.html
+          sed -i "s|<meta property=\"og:title\" content=\"[^\"]*\">|<meta property=\"og:title\" content=\"${TITLE}\">|g" index.html
+          sed -i "s|<meta property=\"og:description\" content=\"[^\"]*\">|<meta property=\"og:description\" content=\"${DESC}\">|g" index.html
+          sed -i "s|<meta property=\"og:image\" content=\"[^\"]*\">|<meta property=\"og:image\" content=\"${IMAGE}\">|g" index.html
+          sed -i "s|<meta name=\"twitter:title\" content=\"[^\"]*\">|<meta name=\"twitter:title\" content=\"${TITLE}\">|g" index.html
+          sed -i "s|<meta name=\"twitter:description\" content=\"[^\"]*\">|<meta name=\"twitter:description\" content=\"${DESC}\">|g" index.html
+          sed -i "s|<meta name=\"twitter:image\" content=\"[^\"]*\">|<meta name=\"twitter:image\" content=\"${IMAGE}\">|g" index.html
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add index.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "تحديث تلقائي للـ OG tags" && git push)
