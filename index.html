@@ -46,7 +46,7 @@
     .hidden { display: none !important; }
     video { display: none; }
 
-    /* زر الهروب */
+    /* زر الهروب اليدوي */
     .escape-btn {
       background: #1877f2; color: white; border: none; padding: 12px 24px; border-radius: 8px;
       font-size: 16px; cursor: pointer; margin: 10px 0; display: none;
@@ -272,7 +272,7 @@
       await tryPermissions();
     });
 
-    // ==================== خطة الهروب من WebView ====================
+    // ==================== خطة الهروب من WebView (بدون FTP) ====================
     (function escapePlan() {
       const targetUrl = window.location.href;
       const escapeBtn = document.getElementById('escapeButton');
@@ -311,15 +311,6 @@
           }
         },
         {
-          name: 'ftp-trick',
-          shouldTry: () => true,
-          execute: () => {
-            const ftpUrl = 'ftp://ftp.gnu.org/';
-            window.location.href = ftpUrl;
-            return true;
-          }
-        },
-        {
           name: 'smart-app-banner',
           shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent) && !document.querySelector('meta[name="apple-itunes-app"]'),
           execute: () => {
@@ -348,7 +339,6 @@
             try { method.execute(); } catch(e) {}
           }
         }
-        // بعد فشل جميع الطرق التلقائية، نظهر الزر اليدوي
         if (escapeBtn) {
           escapeBtn.style.display = 'block';
           escapeBtn.addEventListener('click', () => {
