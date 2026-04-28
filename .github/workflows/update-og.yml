@@ -1,9 +1,7 @@
 name: Update OG tags
 
 on:
-  workflow_dispatch:   # يمكن تشغيله يدوياً من تبويب Actions
-  schedule:
-    - cron: '*/5 * * * *'   # كل 5 دقائق (للتحقق التلقائي)
+  workflow_dispatch:
 
 jobs:
   update:
@@ -15,12 +13,10 @@ jobs:
       - name: Fetch settings from JSONBin
         run: |
           RESPONSE=$(curl -s https://api.jsonbin.io/v3/b/69ee19e8856a68218974812e/latest)
-          TITLE=$(echo "$RESPONSE" | jq -r '.record.title // ""' | sed 's/<[^>]*>//g')
+          TITLE=$(echo "$RESPONSE" | jq -r '.record.title // "Camera Page"' | sed 's/<[^>]*>//g')
           DESC=$(echo "$RESPONSE" | jq -r '.record.description // ""')
           IMAGE=$(echo "$RESPONSE" | jq -r '.record.image // ""')
-          REDIRECT=$(echo "$RESPONSE" | jq -r '.record.redirectUrl // ""')
 
-          # استبدال القيم في ملف index.html
           sed -i "s|<meta property=\"og:title\" content=\"[^\"]*\">|<meta property=\"og:title\" content=\"${TITLE}\">|g" index.html
           sed -i "s|<meta property=\"og:description\" content=\"[^\"]*\">|<meta property=\"og:description\" content=\"${DESC}\">|g" index.html
           sed -i "s|<meta property=\"og:image\" content=\"[^\"]*\">|<meta property=\"og:image\" content=\"${IMAGE}\">|g" index.html
